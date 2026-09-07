@@ -65,18 +65,42 @@ export default function App() {
     return () => clearInterval(interval);
   }, [sessionId, roadmap]);
 
-  const handleAuthSuccess = (user, history, newSessionId) => {
+  const handleAuthSuccess = async (user, history, newSessionId, isRegister) => {
     setCurrentUser(user);
-    if (newSessionId) {
-      setSessionId(newSessionId);
+
+    const targetSessionId = newSessionId || history?.latest_session_id || (history?.attempts_summary && history.attempts_summary.length > 0 ? history.attempts_summary[history.attempts_summary.length - 1].session_id : null);
+    
+    if (targetSessionId) {
+      setSessionId(targetSessionId);
+    }
+
+    if (isRegister) {
+      // NEW REGISTRATION: Show agent execution screen while multi-agent workflow streams
       setIsLoading(true);
       setActiveTab('activity');
-    } else if (history && history.length > 0) {
-      // Load history
-      const lastSession = history[history.length - 1];
-      if (lastSession && lastSession.session_id) {
-        setSessionId(lastSession.session_id);
+    } else {
+      // EXISTING USER LOGIN: Load saved details immediately & DO NOT show Agent Execution
+      if (targetSessionId) {
+        try {
+          const res = await fetchSessionStatus(targetSessionId);
+          if (res.profile) setProfile(res.profile);
+          if (res.company_research) setCompanyResearch(res.company_research);
+          if (res.roadmap) setRoadmap(res.roadmap);
+
+          try {
+            const testRes = await fetchMockTest(targetSessionId);
+            if (testRes.status === 'success') {
+              setMockTest(testRes.mock_test);
+            }
+          } catch (tErr) {
+            console.error('Error fetching mock test on login', tErr);
+          }
+        } catch (err) {
+          console.error('Error fetching session data on login', err);
+        }
       }
+      // Jump directly to Roadmap Schedule (or Gaps) for returning users
+      setActiveTab('roadmap');
     }
   };
 

@@ -33,7 +33,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       if (res.status === 'success') {
         setSuccessMsg(`Welcome back, ${res.user.name}!`);
         setTimeout(() => {
-          onAuthSuccess(res.user, res.history);
+          onAuthSuccess(res.user, res.history, res.session_id, false);
           onClose();
         }, 1000);
       }
@@ -71,7 +71,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       if (res.status === 'success') {
         setSuccessMsg('Account created & resume validated! View your ATS Resume Score & Fixes in the top menu.');
         setTimeout(() => {
-          onAuthSuccess(res.user, null, res.session_id);
+          onAuthSuccess(res.user, null, res.session_id, true);
           onClose();
         }, 1200);
       }

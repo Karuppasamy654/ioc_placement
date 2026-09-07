@@ -153,11 +153,13 @@ def login_user(login_data: UserLoginInput):
 
     # Retrieve existing user session history or profile
     history = MemoryManager.get_student_history(user_acc.name)
+    latest_session_id = history.get("latest_session_id") if history else None
     
     return {
         "status": "success",
         "user": user_acc,
-        "history": history
+        "history": history,
+        "session_id": latest_session_id
     }
 
 @app.post("/api/prepare")

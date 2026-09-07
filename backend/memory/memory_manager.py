@@ -171,9 +171,11 @@ class MemoryManager:
         repeated_weaknesses = [t for t, count in topic_weak_counts.items() if count >= 2 or (len(attempt_rows) == 1 and count >= 1)]
 
         avg_score = round(sum(scores) / len(scores), 1) if scores else None
+        latest_session_id = roadmap_rows[-1]["session_id"] if roadmap_rows else None
 
         return {
             "has_history": True,
+            "latest_session_id": latest_session_id,
             "attempt_count": len(attempt_rows),
             "previous_weak_topics": all_weak_topics,
             "previous_strong_topics": all_strong_topics,
