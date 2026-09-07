@@ -2,6 +2,7 @@ import os
 import uuid
 import shutil
 import tempfile
+import sqlite3
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -58,6 +59,7 @@ def health_check():
 
 @app.post("/api/register")
 async def register_user(
+    background_tasks: BackgroundTasks,
     username: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
@@ -102,9 +104,12 @@ async def register_user(
             current_skills=current_skills
         )
 
-        user_acc = MemoryManager.create_user(reg_input)
+        try:
+            user_acc = MemoryManager.create_user(reg_input)
+        except sqlite3.IntegrityError as ie:
+            raise HTTPException(status_code=400, detail=f"Username or email '{email}' is already registered. Please login instead.")
 
-        # Trigger initial pipeline generation for user
+        # Trigger initial pipeline generation for user in background
         session_id = str(uuid.uuid4())
         student_input = StudentInput(
             name=name,
@@ -115,7 +120,18 @@ async def register_user(
             current_skills=current_skills
         )
 
-        OrchestratorAgent.run_preparation_pipeline_with_session(session_id, student_input, saved_resume_path)
+        # Pre-register session state & log immediate startup event
+        state = state_manager.get_or_create_session(session_id)
+        state.student_input = student_input
+        log_event("Orchestrator", f"User registered ('{username}'). Workflow initialized for candidate '{name}'", "STARTED", state)
+
+        # Start multi-agent workflow in background task
+        background_tasks.add_task(
+            OrchestratorAgent.run_preparation_pipeline_with_session,
+            session_id,
+            student_input,
+            saved_resume_path
+        )
 
         return {
             "status": "success",
