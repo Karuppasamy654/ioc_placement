@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, Target, CheckSquare, Layers, Award, Download, Grid, List } from 'lucide-react';
+import { Calendar, Clock, Target, CheckSquare, Layers, Award, Download, Grid, List, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { getICSCalendarUrl } from '../api';
 
 export default function Roadmap({ roadmap, profile, sessionId }) {
   const [completedDays, setCompletedDays] = useState({});
-  const [viewMode, setViewMode] = useState('timeline'); // 'timeline' or 'calendar'
+  const [expandedDays, setExpandedDays] = useState({ 1: true }); // Day 1 open by default
+  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'timeline'
 
   if (!roadmap || !roadmap.days || roadmap.days.length === 0) {
     return (
@@ -14,8 +15,23 @@ export default function Roadmap({ roadmap, profile, sessionId }) {
     );
   }
 
-  const toggleDayCompletion = (dayNum) => {
+  const toggleDayCompletion = (dayNum, e) => {
+    if (e) e.stopPropagation();
     setCompletedDays((prev) => ({ ...prev, [dayNum]: !prev[dayNum] }));
+  };
+
+  const toggleDayExpansion = (dayNum) => {
+    setExpandedDays((prev) => ({ ...prev, [dayNum]: !prev[dayNum] }));
+  };
+
+  const expandAllDays = () => {
+    const all = {};
+    roadmap.days.forEach((d) => (all[d.day_number] = true));
+    setExpandedDays(all);
+  };
+
+  const collapseAllDays = () => {
+    setExpandedDays({ 1: true });
   };
 
   const completedCount = Object.values(completedDays).filter(Boolean).length;
@@ -29,7 +45,7 @@ export default function Roadmap({ roadmap, profile, sessionId }) {
   };
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Strategy Overview Card */}
       <div className="card" style={{ background: 'linear-gradient(135deg, #182030, #131b2a)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -47,18 +63,28 @@ export default function Roadmap({ roadmap, profile, sessionId }) {
             {/* View Mode Toggle */}
             <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '10px', padding: '4px', display: 'flex', gap: '4px' }}>
               <button
-                onClick={() => setViewMode('timeline')}
-                className={`btn ${viewMode === 'timeline' ? 'btn-primary' : ''}`}
-                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                <List size={14} /> Timeline
-              </button>
-              <button
                 onClick={() => setViewMode('calendar')}
                 className={`btn ${viewMode === 'calendar' ? 'btn-primary' : ''}`}
                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                <Grid size={14} /> Calendar View
+                <Grid size={14} /> Calendar Grid View
+              </button>
+              <button
+                onClick={() => setViewMode('timeline')}
+                className={`btn ${viewMode === 'timeline' ? 'btn-primary' : ''}`}
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                <List size={14} /> Timeline View
+              </button>
+            </div>
+
+            {/* Expand / Collapse All Controls */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button onClick={expandAllDays} className="btn btn-secondary" style={{ padding: '0.4rem 0.7rem', fontSize: '0.75rem' }}>
+                Expand All
+              </button>
+              <button onClick={collapseAllDays} className="btn btn-secondary" style={{ padding: '0.4rem 0.7rem', fontSize: '0.75rem' }}>
+                Collapse All
               </button>
             </div>
 
@@ -98,59 +124,92 @@ export default function Roadmap({ roadmap, profile, sessionId }) {
 
       {/* CALENDAR VIEW GRID */}
       {viewMode === 'calendar' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
           {roadmap.days.map((day, idx) => {
             const isDone = Boolean(completedDays[day.day_number]);
+            const isOpen = Boolean(expandedDays[day.day_number]);
             const dateStr = getCalendarDateString(idx);
 
             return (
               <div
                 key={day.day_number}
                 className="card"
+                onClick={() => toggleDayExpansion(day.day_number)}
                 style={{
-                  borderColor: isDone ? 'var(--accent-green)' : 'var(--border-color)',
-                  background: isDone ? 'rgba(16, 185, 129, 0.05)' : 'rgba(255, 255, 255, 0.02)',
+                  borderColor: isDone ? 'var(--accent-green)' : isOpen ? 'var(--accent-cyan)' : 'var(--border-color)',
+                  background: isDone ? 'rgba(16, 185, 129, 0.05)' : isOpen ? 'rgba(0, 242, 254, 0.03)' : 'rgba(255, 255, 255, 0.02)',
                   padding: '1.25rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isOpen ? '0 0 15px rgba(0, 242, 254, 0.15)' : 'none'
                 }}
               >
+                {/* Header Row */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <span className="badge badge-high" style={{ fontSize: '0.75rem' }}>
-                    <Calendar size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                    {dateStr}
-                  </span>
-                  <button
-                    onClick={() => toggleDayCompletion(day.day_number)}
-                    style={{
-                      background: isDone ? 'var(--accent-green)' : 'transparent',
-                      border: `1.5px solid ${isDone ? 'var(--accent-green)' : 'var(--text-muted)'}`,
-                      borderRadius: '4px',
-                      color: '#000',
-                      cursor: 'pointer',
-                      padding: '2px 6px',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    {isDone ? 'Completed ✓' : 'Mark Done'}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="badge badge-high" style={{ fontSize: '0.75rem' }}>
+                      <Calendar size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                      {dateStr}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Day {day.day_number}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      onClick={(e) => toggleDayCompletion(day.day_number, e)}
+                      style={{
+                        background: isDone ? 'var(--accent-green)' : 'transparent',
+                        border: `1.5px solid ${isDone ? 'var(--accent-green)' : 'var(--text-muted)'}`,
+                        borderRadius: '6px',
+                        color: isDone ? '#000' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: '3px 8px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {isDone ? <><Check size={12} /> Done</> : 'Mark Done'}
+                    </button>
+                    {isOpen ? <ChevronUp size={16} color="var(--accent-cyan)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
+                  </div>
                 </div>
 
-                <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent-cyan)', marginBottom: '0.5rem' }}>
+                {/* Day Title & Duration Summary */}
+                <h4 style={{ fontSize: '1rem', fontWeight: 700, color: isDone ? 'var(--accent-green)' : 'var(--accent-cyan)', marginBottom: '0.35rem' }}>
                   Day {day.day_number}: {day.day_title}
                 </h4>
 
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                  <Clock size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                  Duration: {day.total_hours} hrs
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: isOpen ? '0.75rem' : '0' }}>
+                  <span><Clock size={13} style={{ display: 'inline', marginRight: '4px' }} /> {day.total_hours} hrs</span>
+                  <span>{day.tasks ? day.tasks.length : 0} Focus Tasks</span>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {day.tasks.map((task, tIdx) => (
-                    <div key={tIdx} style={{ background: 'rgba(0,0,0,0.3)', padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.78rem' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: '2px' }}>{task.topic}</div>
-                      <div style={{ color: 'var(--text-muted)' }}>{task.practice_task}</div>
-                    </div>
-                  ))}
-                </div>
+                {/* EXPANDABLE TASKS BODY */}
+                {isOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.75rem', borderTop: '1px dashed var(--border-color)', paddingTop: '0.75rem' }}>
+                    {day.tasks.map((task, tIdx) => (
+                      <div key={tIdx} style={{ background: 'rgba(0,0,0,0.3)', padding: '0.65rem 0.85rem', borderRadius: '8px', fontSize: '0.8rem', borderLeft: `3px solid ${task.priority === 'High' ? 'var(--accent-pink)' : 'var(--accent-cyan)'}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                          <strong style={{ color: 'var(--text-main)' }}>{task.topic}</strong>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--accent-amber)', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                            {task.duration_hours}h
+                          </span>
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '4px' }}>
+                          {task.practice_task}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#a7f3d0' }}>
+                          ✓ {task.expected_outcome}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -158,23 +217,28 @@ export default function Roadmap({ roadmap, profile, sessionId }) {
       ) : (
         /* TIMELINE VIEW CARDS */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {roadmap.days.map((day) => {
+          {roadmap.days.map((day, idx) => {
             const isDone = Boolean(completedDays[day.day_number]);
+            const isOpen = Boolean(expandedDays[day.day_number]);
+            const dateStr = getCalendarDateString(idx);
 
             return (
               <div
                 key={day.day_number}
                 className="card"
                 style={{
-                  borderColor: isDone ? 'var(--accent-green)' : 'var(--border-color)',
+                  borderColor: isDone ? 'var(--accent-green)' : isOpen ? 'var(--accent-cyan)' : 'var(--border-color)',
                   opacity: isDone ? 0.85 : 1,
                   transition: 'all 0.2s ease',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <div
+                  onClick={() => toggleDayExpansion(day.day_number)}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', paddingBottom: isOpen ? '0.75rem' : '0', borderBottom: isOpen ? '1px solid var(--border-color)' : 'none' }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <button
-                      onClick={() => toggleDayCompletion(day.day_number)}
+                      onClick={(e) => toggleDayCompletion(day.day_number, e)}
                       style={{
                         background: isDone ? 'var(--accent-green)' : 'transparent',
                         border: `2px solid ${isDone ? 'var(--accent-green)' : 'var(--text-muted)'}`,
@@ -189,49 +253,58 @@ export default function Roadmap({ roadmap, profile, sessionId }) {
                     >
                       <CheckSquare size={16} color={isDone ? '#000' : 'var(--text-muted)'} />
                     </button>
-                    <h3 style={{ fontSize: '1.15rem', fontWeight: 600, textDecoration: isDone ? 'line-through' : 'none' }}>
-                      {day.day_title}
-                    </h3>
+                    <div>
+                      <span className="badge badge-info" style={{ fontSize: '0.7rem', marginRight: '8px' }}>{dateStr}</span>
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 600, display: 'inline', textDecoration: isDone ? 'line-through' : 'none' }}>
+                        Day {day.day_number}: {day.day_title}
+                      </h3>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    <Clock size={15} /> Total Duration: <strong>{day.total_hours} hrs</strong>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      <Clock size={15} style={{ display: 'inline', marginRight: '4px' }} /> <strong>{day.total_hours} hrs</strong>
+                    </div>
+                    {isOpen ? <ChevronUp size={18} color="var(--accent-cyan)" /> : <ChevronDown size={18} color="var(--text-muted)" />}
                   </div>
                 </div>
 
                 {/* Tasks List */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
-                  {day.tasks.map((task, tIdx) => (
-                    <div
-                      key={tIdx}
-                      style={{
-                        background: 'rgba(0, 0, 0, 0.25)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '12px',
-                        padding: '1rem',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                        <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>{task.topic}</h4>
-                        <span className={`badge badge-${task.priority.toLowerCase()}`}>{task.priority}</span>
-                      </div>
+                {isOpen && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                    {day.tasks.map((task, tIdx) => (
+                      <div
+                        key={tIdx}
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.25)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '12px',
+                          padding: '1rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                          <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>{task.topic}</h4>
+                          <span className={`badge badge-${task.priority.toLowerCase()}`}>{task.priority}</span>
+                        </div>
 
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                        <Layers size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                        <strong>Subtopics:</strong> {task.subtopics.join(', ') || 'Core concepts'}
-                      </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                          <Layers size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                          <strong>Subtopics:</strong> {task.subtopics.join(', ') || 'Core concepts'}
+                        </div>
 
-                      <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.65rem', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '0.5rem' }}>
-                        <Target size={13} style={{ display: 'inline', marginRight: '4px', color: 'var(--accent-amber)' }} />
-                        <strong>Practice Task:</strong> {task.practice_task}
-                      </div>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.65rem', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '0.5rem' }}>
+                          <Target size={13} style={{ display: 'inline', marginRight: '4px', color: 'var(--accent-amber)' }} />
+                          <strong>Practice Task:</strong> {task.practice_task}
+                        </div>
 
-                      <div style={{ fontSize: '0.8rem', color: '#a7f3d0' }}>
-                        <Award size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                        <strong>Expected Outcome:</strong> {task.expected_outcome}
+                        <div style={{ fontSize: '0.8rem', color: '#a7f3d0' }}>
+                          <Award size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                          <strong>Expected Outcome:</strong> {task.expected_outcome}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -240,4 +313,3 @@ export default function Roadmap({ roadmap, profile, sessionId }) {
     </div>
   );
 }
-
