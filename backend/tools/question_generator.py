@@ -2,6 +2,7 @@ import random
 from typing import List, Dict, Any, Optional
 from backend.services.gemini_service import gemini_service
 from backend.models.schemas import MCQQuestion, StudentProfile, CompanyResearch, Roadmap
+from backend.utils.logger import log_tool_start, log_tool_process, log_tool_result
 
 class QuestionGeneratorTool:
     @staticmethod
@@ -9,14 +10,15 @@ class QuestionGeneratorTool:
         profile: StudentProfile,
         company_research: CompanyResearch,
         roadmap: Optional[Roadmap] = None,
-        target_count: int = 55
+        target_count: int = 55,
+        state=None
     ) -> List[MCQQuestion]:
         """
         Generates 50-60 dynamic placement MCQs tailored to profile, role, company research, and roadmap topics.
-        Uses batched Gemini generation when key is present, or dynamic domain synthesis if Gemini key is unconfigured.
         """
         target_count = max(50, min(60, target_count))
-        
+        start_time = log_tool_start("Question Generator Tool", f"target_count={target_count}, role='{profile.target_role}'", state=state)
+
         # Collect target topics from roadmap or profile
         topics = []
         if roadmap and roadmap.days:
@@ -42,6 +44,7 @@ class QuestionGeneratorTool:
 
         # Check if Gemini API is configured
         if gemini_service.is_configured():
+            log_tool_process("Question Generator Tool", "Querying Gemini API in structured batches for dynamic MCQs", state=state)
             batches = [
                 {"count": 30, "focus": "Core CS Concepts (DSA, DBMS, OOP, OS, Networking)"},
                 {"count": 30, "focus": f"{role} Specific Engineering, System Design, Problem Solving & {company} Focus"}
@@ -71,8 +74,7 @@ CRITICAL RULES:
    - "difficulty": "easy", "medium", or "hard"
    - "explanation": Step-by-step technical explanation
 """
-                system_instruction = "You are an expert technical interviewer creating placement MCQs in valid JSON format."
-                raw_data = gemini_service.generate_json(prompt, system_instruction=system_instruction)
+                raw_data = gemini_service.generate_json(prompt, system_instruction="You are an expert technical interviewer creating placement MCQs in valid JSON format.", purpose=f"Generate MCQs for {batch['focus']}", state=state)
                 
                 if isinstance(raw_data, list):
                     for q_dict in raw_data:
@@ -84,14 +86,19 @@ CRITICAL RULES:
 
         # Fallback / Dynamic Synthesis if questions count is under target_count
         if len(valid_questions) < target_count:
+            missing_cnt = target_count - len(valid_questions)
+            log_tool_process("Question Generator Tool", f"Synthesizing {missing_cnt} technical domain questions to reach target assessment count", state=state)
             synthetic_qs = QuestionGeneratorTool._synthesize_dynamic_questions(
                 profile=profile,
                 company_research=company_research,
                 topics=topics,
-                count=target_count - len(valid_questions),
+                count=missing_cnt,
                 seen=seen_questions
             )
             valid_questions.extend(synthetic_qs)
+
+        result_summary = f"{len(valid_questions)} valid dynamic MCQs generated and validated (4 options per question)."
+        log_tool_result("Question Generator Tool", result_summary, start_time, state=state)
 
         return valid_questions[:target_count]
 
@@ -160,141 +167,68 @@ CRITICAL RULES:
         count: int,
         seen: set
     ) -> List[MCQQuestion]:
-        """
-        Dynamically generates technical MCQs dynamically tailored to candidate parameters when API key is pending.
-        """
         syn_questions: List[MCQQuestion] = []
         role = profile.target_role
         company = profile.target_company
         
-        # Domain concept generators
         concept_templates = [
-            # DSA & Algorithms
             {
                 "topic": "Data Structures & Algorithms",
                 "difficulty": "medium",
                 "q": "What is the worst-case time complexity of searching an element in an unbalanced Binary Search Tree (BST)?",
                 "opts": ["O(log N)", "O(N)", "O(1)", "O(N log N)"],
                 "ans": "O(N)",
-                "exp": "In an unbalanced or skewed BST, searching degenerates to linear scan O(N)."
+                "exp": "In an unbalanced BST, search degrades to linear scan O(N)."
             },
             {
                 "topic": "Data Structures & Algorithms",
                 "difficulty": "hard",
-                "q": "Which data structure is optimal for implementing LRU (Least Recently Used) cache with O(1) time complexity?",
+                "q": "Which data structure is optimal for implementing LRU cache with O(1) time complexity?",
                 "opts": ["Array + Hash Map", "Doubly Linked List + Hash Map", "Stack + Queue", "Binary Heap + Array"],
                 "ans": "Doubly Linked List + Hash Map",
-                "exp": "A Hash Map provides O(1) node lookup and a Doubly Linked List allows O(1) removal and insertion at head/tail."
+                "exp": "Hash Map provides O(1) lookup and Doubly Linked List provides O(1) removal/insertion."
             },
-            {
-                "topic": "Data Structures & Algorithms",
-                "difficulty": "easy",
-                "q": "Which algorithm technique does Merge Sort utilize?",
-                "opts": ["Greedy Approach", "Dynamic Programming", "Divide and Conquer", "Backtracking"],
-                "ans": "Divide and Conquer",
-                "exp": "Merge Sort repeatedly divides array in halves, recursively sorts them, and merges sorted subarrays."
-            },
-
-            # DBMS & SQL
             {
                 "topic": "Database Management Systems",
                 "difficulty": "medium",
-                "q": "Which ACID property ensures that database transactions are committed permanently even in event of system crashes?",
+                "q": "Which ACID property guarantees that committed transactions persist across system crashes?",
                 "opts": ["Atomicity", "Consistency", "Isolation", "Durability"],
                 "ans": "Durability",
-                "exp": "Durability guarantees that once a transaction completes, its updates persist in non-volatile storage."
+                "exp": "Durability ensures committed updates persist in non-volatile storage."
             },
-            {
-                "topic": "Database Management Systems",
-                "difficulty": "hard",
-                "q": "What is the primary trade-off when adding a B-Tree index to a database column?",
-                "opts": ["Faster SELECT queries but slower INSERT/UPDATE operations", "Slower SELECT queries but faster writes", "Higher memory usage with zero performance impact", "Disables database normalization"],
-                "ans": "Faster SELECT queries but slower INSERT/UPDATE operations",
-                "exp": "Indexes accelerate read queries via B-Tree traversal but impose maintenance overhead during write mutations."
-            },
-
-            # Operating Systems
-            {
-                "topic": "Operating Systems",
-                "difficulty": "medium",
-                "q": "What condition occurs when two or more processes are blocked indefinitely waiting for resources held by each other?",
-                "opts": ["Starvation", "Deadlock", "Race Condition", "Thrashing"],
-                "ans": "Deadlock",
-                "exp": "Deadlock happens when processes enter circular wait holding non-preemptable resources."
-            },
-            {
-                "topic": "Operating Systems",
-                "difficulty": "hard",
-                "q": "What is the phenomenon called when the CPU spends more time executing page swaps than actual processing?",
-                "opts": ["Context Switching", "Segmentation Fault", "Thrashing", "Paging Overhead"],
-                "ans": "Thrashing",
-                "exp": "Thrashing occurs when high page fault rate forces constant page replacement between RAM and secondary disk."
-            },
-
-            # System Design & Web Architecture
             {
                 "topic": "System Design",
                 "difficulty": "hard",
-                "q": "In high-throughput microservices architecture, which pattern prevents cascading failures when a downstream dependency experiences outage?",
+                "q": "Which pattern prevents cascading failures when a downstream microservice dependency experiences outage?",
                 "opts": ["Circuit Breaker", "Saga Pattern", "CQRS", "Read Replica"],
                 "ans": "Circuit Breaker",
-                "exp": "The Circuit Breaker pattern detects dependency failures and immediately trips requests without exhausting caller threads."
+                "exp": "Circuit Breaker trips failed requests immediately to prevent resource exhaustion."
             },
             {
-                "topic": "System Design",
+                "topic": "Operating Systems",
                 "difficulty": "medium",
-                "q": "Which HTTP protocol property allows GET requests to be safely retried multiple times without altering server side state?",
-                "opts": ["Asynchronous", "Idempotency", "Statelessness", "Persistence"],
-                "ans": "Idempotency",
-                "exp": "HTTP GET is idempotent and safe because repeated requests produce identical state results."
-            },
-
-            # OOP & Software Engineering
-            {
-                "topic": "Object Oriented Programming",
-                "difficulty": "easy",
-                "q": "Which OOP principle allows a subclass to provide a specific implementation of a method defined in its parent class?",
-                "opts": ["Encapsulation", "Method Overriding", "Method Overloading", "Abstraction"],
-                "ans": "Method Overriding",
-                "exp": "Method overriding allows dynamic runtime polymorphism where child class redefines superclass behavior."
+                "q": "What condition occurs when two or more processes wait indefinitely for resources held by each other?",
+                "opts": ["Starvation", "Deadlock", "Race Condition", "Thrashing"],
+                "ans": "Deadlock",
+                "exp": "Deadlock occurs when processes enter circular wait holding non-preemptable resources."
             },
             {
                 "topic": "Object Oriented Programming",
                 "difficulty": "medium",
-                "q": "What does the 'S' in SOLID object-oriented design principles stand for?",
+                "q": "What does the 'S' in SOLID design principles stand for?",
                 "opts": ["Single Responsibility Principle", "System Isolation Principle", "Static Interface Rule", "State Encapsulation Rule"],
                 "ans": "Single Responsibility Principle",
-                "exp": "Single Responsibility Principle dictates that a class should have one, and only one, reason to change."
-            },
-
-            # Role & Language Specific
-            {
-                "topic": f"{role} Core Engineering",
-                "difficulty": "medium",
-                "q": f"In a high-performance {role} workflow at {company}, which mechanism minimizes network round-trips for API consumers?",
-                "opts": ["GraphQL / Batching", "Synchronous Polling", "Monolithic RPC", "FTP File Transfers"],
-                "ans": "GraphQL / Batching",
-                "exp": "Batching request payload queries via GraphQL or REST batch endpoints eliminates round-trip latency."
-            },
-            {
-                "topic": "Computer Networks",
-                "difficulty": "medium",
-                "q": "During TCP 3-way handshake, what is the sequence of flag signals exchanged between Client and Server?",
-                "opts": ["SYN -> SYN-ACK -> ACK", "ACK -> SYN -> FIN", "CONNECT -> OPEN -> READY", "SYN -> ACK -> DATA"],
-                "ans": "SYN -> SYN-ACK -> ACK",
-                "exp": "TCP connection establishment requires Client SYN, Server SYN-ACK response, and Client final ACK."
+                "exp": "Single Responsibility Principle states a class should have one reason to change."
             }
         ]
 
-        # Generate synthesized dynamic questions up to requested count
         seed_idx = 0
         while len(syn_questions) < count:
             tmpl = concept_templates[seed_idx % len(concept_templates)]
             q_text = tmpl["q"]
             
-            # If question already seen, append variation counter
             if q_text.lower() in seen:
-                q_text = f"[{company} {role} Assessment Variant {seed_idx + 1}] {tmpl['q']}"
+                q_text = f"[{company} {role} Assessment Item #{seed_idx + 1}] {tmpl['q']}"
 
             if q_text.lower() not in seen:
                 seen.add(q_text.lower())

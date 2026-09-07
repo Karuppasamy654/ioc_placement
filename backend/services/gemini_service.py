@@ -1,7 +1,9 @@
 import os
 import json
 import re
+import time
 from typing import Dict, Any, Optional
+from backend.utils.logger import log_gemini_request, log_gemini_response, log_gemini_error
 
 try:
     from dotenv import load_dotenv  # type: ignore
@@ -32,8 +34,8 @@ class GeminiService:
     def is_configured(self) -> bool:
         return bool(self.api_key and self.api_key != "your_gemini_api_key_here")
 
-    def generate_json(self, prompt: str, system_instruction: str = "") -> Optional[Dict[str, Any]]:
-        raw_text = self.generate_text(prompt, system_instruction=system_instruction, json_mode=True)
+    def generate_json(self, prompt: str, system_instruction: str = "", purpose: str = "JSON Generation", state=None) -> Optional[Dict[str, Any]]:
+        raw_text = self.generate_text(prompt, system_instruction=system_instruction, json_mode=True, purpose=purpose, state=state)
         if not raw_text:
             return None
 
@@ -52,9 +54,9 @@ class GeminiService:
             print(f"[GEMINI_SERVICE WARNING] Failed to parse JSON from response snippet: {cleaned[:150]}")
             return None
 
-    def generate_text(self, prompt: str, system_instruction: str = "", json_mode: bool = False) -> str:
+    def generate_text(self, prompt: str, system_instruction: str = "", json_mode: bool = False, purpose: str = "Text Generation", state=None) -> str:
         if not self.is_configured():
-            print("[GEMINI_SERVICE WARNING] GEMINI_API_KEY is missing or unconfigured in .env!")
+            log_gemini_error("GEMINI_API_KEY is missing or unconfigured in .env", state=state)
             return ""
 
         headers = {"Content-Type": "application/json"}
@@ -76,8 +78,11 @@ class GeminiService:
         if json_mode:
             payload["generationConfig"]["responseMimeType"] = "application/json"
 
+        start_time = time.time()
+
         for model in self.models:
             url = f"{self.endpoint_base}/{model}:generateContent?key={self.api_key}"
+            log_gemini_request(model, purpose, state=state)
             
             # Primary: use httpx if available
             if httpx is not None:
@@ -90,11 +95,13 @@ class GeminiService:
                             if candidates and "content" in candidates[0]:
                                 parts = candidates[0]["content"].get("parts", [])
                                 if parts:
-                                    return parts[0].get("text", "")
+                                    res_text = parts[0].get("text", "")
+                                    log_gemini_response("SUCCESS (HTTP 200)", len(res_text), time.time() - start_time, state=state)
+                                    return res_text
                         else:
-                            print(f"[GEMINI_SERVICE WARNING] Model {model} returned HTTP {resp.status_code}: {resp.text[:200]}")
+                            log_gemini_error(f"Model {model} HTTP {resp.status_code}: {resp.text[:150]}", state=state)
                 except Exception as e:
-                    print(f"[GEMINI_SERVICE ERROR] Request to model {model} failed: {e}")
+                    log_gemini_error(f"Request to model {model} failed: {e}", state=state)
             else:
                 # Fallback: urllib standard library
                 try:
@@ -107,9 +114,11 @@ class GeminiService:
                             if candidates and "content" in candidates[0]:
                                 parts = candidates[0]["content"].get("parts", [])
                                 if parts:
-                                    return parts[0].get("text", "")
+                                    res_text = parts[0].get("text", "")
+                                    log_gemini_response("SUCCESS (HTTP 200)", len(res_text), time.time() - start_time, state=state)
+                                    return res_text
                 except Exception as e:
-                    print(f"[GEMINI_SERVICE ERROR] urllib request to model {model} failed: {e}")
+                    log_gemini_error(f"urllib request to model {model} failed: {e}", state=state)
 
         return ""
 

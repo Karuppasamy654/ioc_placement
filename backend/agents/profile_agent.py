@@ -2,15 +2,44 @@ from typing import Optional
 from backend.models.schemas import StudentInput, ResumeData, StudentProfile
 from backend.models.state import SessionState
 from backend.services.gemini_service import gemini_service
-from backend.utils.logger import log_event
+from backend.memory.memory_manager import MemoryManager
+from backend.utils.logger import log_agent_start, log_agent_action, log_agent_end, log_memory_op
 
 class ProfileAnalysisAgent:
     @staticmethod
     def analyze_profile(student_input: StudentInput, resume_data: Optional[ResumeData], state: SessionState) -> StudentProfile:
         """
-        Analyzes student inputs and resume data to produce a structured student profile and skill gap analysis.
+        Analyzes student inputs, resume data, and persistent memory history to produce a structured student profile and skill gap analysis.
         """
-        log_event("Profile Analysis Agent", "Analyzing student profile, current skills, and uploaded resume...", "STARTED", state)
+        start_time = log_agent_start(
+            "Profile Analysis Agent",
+            f"Candidate: '{student_input.name}' | Role: '{student_input.target_role}' @ '{student_input.target_company}' | Prep Window: {student_input.prep_days} days",
+            state=state
+        )
+
+        # 1. Query Persistent Memory History
+        log_memory_op(
+            "READ",
+            f"Checking persistent memory DB for prior sessions of student '{student_input.name}'...",
+            state=state
+        )
+        history = MemoryManager.get_student_history(student_input.name)
+
+        if history["has_history"]:
+            past_summary = (
+                f"History Found! {history['attempt_count']} previous test attempt(s) | "
+                f"Previous Weak Topics: {history['previous_weak_topics']} | "
+                f"Repeated Weaknesses: {history['repeated_weaknesses']} | "
+                f"Last Score: {history['last_score']}%"
+            )
+            log_memory_op("READ RESULT", f"Candidate '{student_input.name}' has existing preparation history.", past_summary, state=state)
+            log_agent_action(
+                "Profile Analysis Agent",
+                f"[MEMORY RECALL] Prior student history loaded: {len(history['previous_weak_topics'])} previous weak topics identified.",
+                state=state
+            )
+        else:
+            log_memory_op("READ RESULT", f"No prior history found for candidate '{student_input.name}'. Proceeding with initial profile analysis.", state=state)
 
         user_skills_list = [s.strip() for s in student_input.current_skills.split(",") if s.strip()]
         
@@ -33,6 +62,17 @@ Extracted Resume Summary:
         else:
             resume_summary = "No resume uploaded. Analysis based strictly on student-provided inputs."
 
+        memory_context = ""
+        if history["has_history"]:
+            memory_context = f"""
+PERSISTENT MEMORY LEARNING HISTORY:
+- Previous Mock Test Attempts: {history['attempt_count']}
+- Past Weak Topics: {', '.join(history['previous_weak_topics'])}
+- Repeated Weaknesses across sessions: {', '.join(history['repeated_weaknesses'])}
+- Last Recorded Test Score: {history['last_score']}%
+(Note: Treat past weak topics as high-priority focus areas for this session).
+"""
+
         prompt = f"""
 Analyze the student candidate profile for placement preparation:
 - Name: {student_input.name}
@@ -41,11 +81,12 @@ Analyze the student candidate profile for placement preparation:
 - Preparation Window: {student_input.prep_days} days ({student_input.daily_hours} hours/day)
 - Self-Reported Skills: {', '.join(user_skills_list)}
 {resume_summary}
+{memory_context}
 
 Task:
 Identify:
 1. Candidate's core strong technical areas based ONLY on provided evidence.
-2. Weaker or less-evidenced technical areas.
+2. Weaker or less-evidenced technical areas (include past unmastered weak topics if applicable).
 3. Essential technical skills required for a {student_input.target_role} at {student_input.target_company}.
 4. Skill gaps between current profile and target role requirements.
 5. Specific actionable recommendations for preparation.
@@ -59,7 +100,13 @@ Return JSON format:
   "recommendations": ["..."]
 }}
 """
-        raw_json = gemini_service.generate_json(prompt, system_instruction="You are an expert technical interviewer and career assessment agent. Do not fabricate missing information.")
+        log_agent_action("Profile Analysis Agent", "Sending candidate profile and memory history to Gemini for multi-dimensional skill gap analysis...", state=state)
+        raw_json = gemini_service.generate_json(
+            prompt,
+            system_instruction="You are an expert technical interviewer and career assessment agent. Do not fabricate missing information.",
+            purpose=f"Profile Skill Gap Analysis for {student_input.name}",
+            state=state
+        )
 
         strong = []
         weak = []
@@ -77,10 +124,18 @@ Return JSON format:
         # Fallback if Gemini unconfigured or returned empty
         if not strong and user_skills_list:
             strong = user_skills_list[:3]
+        if not weak and history.get("previous_weak_topics"):
+            weak = history["previous_weak_topics"]
         if not gaps:
             gaps = [f"Advanced System Design for {student_input.target_role}", "Company-specific coding patterns"]
         if not recs:
             recs = ["Focus daily on high-priority weak areas", "Practice timed mock assessments"]
+
+        # Guarantee historical weak topics are in weak_areas if candidate had prior sessions
+        if history["has_history"]:
+            for past_w in history["previous_weak_topics"]:
+                if past_w not in weak and past_w not in strong:
+                    weak.append(past_w)
 
         profile = StudentProfile(
             name=student_input.name,
@@ -97,11 +152,21 @@ Return JSON format:
             recommendations=recs
         )
 
-        log_event(
+        # 2. Save Student Profile to Persistent Memory
+        MemoryManager.save_student_profile(profile)
+        log_memory_op(
+            "WRITE",
+            f"Saved student profile for '{profile.name}' to SQLite database.",
+            f"Strong: {len(strong)} | Weak: {len(weak)} | Gaps: {len(gaps)}",
+            state=state
+        )
+
+        log_agent_end(
             "Profile Analysis Agent",
-            f"Profile analysis complete. Identified {len(gaps)} skill gaps and {len(strong)} strong areas.",
-            "COMPLETED",
-            state
+            f"Profile analysis complete. Identified {len(gaps)} skill gaps and {len(weak)} weak areas (including memory recall).",
+            start_time,
+            state=state
         )
 
         return profile
+

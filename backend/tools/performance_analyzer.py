@@ -1,12 +1,21 @@
 from typing import List, Dict
 from backend.models.schemas import MockTest, QuizSubmission, PerformanceReport, UserAnswerDetail
+from backend.utils.logger import log_tool_start, log_tool_process, log_tool_result
 
 class PerformanceAnalyzerTool:
     @staticmethod
-    def analyze_submission(test: MockTest, submission: QuizSubmission) -> PerformanceReport:
+    def analyze_submission(test: MockTest, submission: QuizSubmission, state=None) -> PerformanceReport:
         """
         Calculates exact deterministic test statistics, topic accuracy, and difficulty metrics.
         """
+        start_time = log_tool_start(
+            "Performance Analyzer Tool",
+            f"Session ID: '{test.session_id[:8]}' | Questions: {len(test.questions)} | Submitted Answers: {len(submission.answers)}",
+            state=state
+        )
+
+        log_tool_process("Performance Analyzer Tool", "Evaluating answer correctness, topic mastery, and score percentage...", state=state)
+
         total_questions = len(test.questions)
         submission_map = {ans.question_index: ans.selected_option.strip() for ans in submission.answers}
         
@@ -91,6 +100,12 @@ class PerformanceAnalyzerTool:
             corr = diff_corrects.get(d_key, 0)
             difficulty_accuracy[d_key] = round((corr / tot) * 100.0, 1)
 
+        result_summary = (
+            f"Score: {score_percentage}% | Correct: {correct_count}/{total_questions} | "
+            f"Weak Topics: {weak_topics if weak_topics else 'None'} | Strong Topics: {strong_topics if strong_topics else 'None'}"
+        )
+        log_tool_result("Performance Analyzer Tool", result_summary, start_time, state=state)
+
         return PerformanceReport(
             session_id=submission.session_id,
             total_questions=total_questions,
@@ -104,3 +119,4 @@ class PerformanceAnalyzerTool:
             weak_topics=weak_topics,
             detailed_answers=detailed_answers
         )
+

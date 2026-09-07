@@ -3,6 +3,7 @@ import urllib.request
 import re
 from typing import List, Dict, Any
 from backend.models.schemas import CompanyResearch, CompanyResearchSource
+from backend.utils.logger import log_tool_start, log_tool_process, log_tool_result
 
 # Guarded optional imports with type ignore for MSYS2 / static IDE linters
 try:
@@ -20,10 +21,14 @@ except ImportError:
 
 class CompanyResearchTool:
     @staticmethod
-    def research_company_and_role(company_name: str, role_name: str) -> CompanyResearch:
+    def research_company_and_role(company_name: str, role_name: str, state=None) -> CompanyResearch:
+        start_time = log_tool_start("Company Research Tool", f"company='{company_name}', role='{role_name}'", state=state)
+        
         query = f"{company_name} {role_name} interview process placement technical skills requirements"
         sources: List[CompanyResearchSource] = []
         snippets: List[str] = []
+
+        log_tool_process("Company Research Tool", f"Executing web search query: '{query}'", state=state)
 
         # 1. Attempt DuckDuckGo search package if available
         if DDGS is not None:
@@ -42,7 +47,7 @@ class CompanyResearchTool:
                             ))
                             snippets.append(f"[{title}] {body}")
             except Exception as e:
-                print(f"[COMPANY RESEARCH TOOL WARNING] DuckDuckGo search error: {e}")
+                log_tool_process("Company Research Tool", f"DuckDuckGo API notice: {e}", state=state)
 
         # 2. Attempt HTTP request via httpx or urllib if no sources retrieved yet
         if not sources:
@@ -57,7 +62,7 @@ class CompanyResearchTool:
                         if resp.status_code == 200:
                             raw_html = resp.text
                 except Exception as e:
-                    print(f"[COMPANY RESEARCH TOOL WARNING] httpx fallback error: {e}")
+                    log_tool_process("Company Research Tool", f"httpx request notice: {e}", state=state)
 
             if not raw_html:
                 try:
@@ -66,7 +71,7 @@ class CompanyResearchTool:
                         if resp.status == 200:
                             raw_html = resp.read().decode("utf-8", errors="ignore")
                 except Exception as e:
-                    print(f"[COMPANY RESEARCH TOOL WARNING] urllib fallback error: {e}")
+                    log_tool_process("Company Research Tool", f"urllib request notice: {e}", state=state)
 
             if raw_html:
                 urls = re.findall(r'class="result__url"\s+href="([^"]+)"', raw_html)
@@ -85,7 +90,8 @@ class CompanyResearchTool:
 
         # 3. Handle research unavailability without fabricating data
         if not snippets or len(sources) == 0:
-            print(f"[COMPANY RESEARCH TOOL INFO] Live research unavailable for {company_name}. Falling back to role-based target strategy.")
+            result_summary = f"Live research unavailable for '{company_name}'. Falling back to role-based prep for '{role_name}'."
+            log_tool_result("Company Research Tool", result_summary, start_time, state=state)
             return CompanyResearch(
                 company_name=company_name,
                 role_name=role_name,
@@ -104,6 +110,9 @@ class CompanyResearchTool:
         for kw in keywords:
             if kw in combined_info.lower():
                 extracted_skills.append(kw.upper() if len(kw) <= 3 else kw.title())
+
+        result_summary = f"{len(sources)} real research sources retrieved | {len(extracted_skills)} role skills identified"
+        log_tool_result("Company Research Tool", result_summary, start_time, state=state)
 
         return CompanyResearch(
             company_name=company_name,
