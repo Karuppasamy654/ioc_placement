@@ -481,6 +481,193 @@ The frontend is built with **React 18** and **Vite**, using Vanilla CSS for glas
 
 ---
 
+
+
+---
+
+## Terminal Observability & Execution Logs
+
+The system incorporates a structured logging framework ([logger.py](file:///d:/Documents/IOC_PROJECT/backend/utils/logger.py)) that streams real-time execution visibility directly to the terminal standard output (`sys.stdout`).
+
+When users interact with the React frontend, the FastAPI backend prints detailed execution logs covering every agent decision, tool execution, LLM call, memory read/write, and state graph transition.
+
+> [!IMPORTANT]
+> **Illustrative terminal format — actual runtime values are generated dynamically based on live execution.**
+
+```text
+============================================================
+🚀 IOC PLACEMENT AGENTIC AI — MULTI-AGENT EXECUTION PIPELINE
+============================================================
+[21:24:25] [PIPELINE] WORKFLOW STARTED
+   Session: 3ff359a9-de62-4c8f-a27a-dd31e26419c3 | Candidate: Alice Smith
+
+[21:24:25] [ORCHESTRATOR] Initializing multi-agent DAG workflow
+[21:24:25] [STATE] Creating shared AgentState container
+[21:24:25] [STATE TRANSITION] INIT -> PROFILE_ANALYSIS
+
+------------------------------------------------------------
+🧠 MEMORY SYSTEM
+------------------------------------------------------------
+[21:24:25] [READ] Querying persistent memory DB for prior candidate profiles for 'Alice Smith'...
+[21:24:25] [MEMORY RESULT] Prior profile found (Session Count: 1)
+[MEMORY COMPLETE]
+
+------------------------------------------------------------
+🤖 PROFILE ANALYSIS AGENT
+------------------------------------------------------------
+[21:24:25] [AGENT START] Profile Analysis Agent
+[INPUT] Student profile received for 'Alice Smith' | Target: Google (Backend Engineer)
+
+[21:24:25] [TOOL START] Resume Parser
+[TOOL INPUT] File: 'sample_resume.pdf' | Format: PDF
+[21:24:25] [TOOL PROCESS] Extracting document text & validating candidate name match...
+[21:24:25] [TOOL RESULT] Resume parsed successfully (4,120 characters extracted). Candidate name matched.
+[TOOL END] Resume Parser (Duration: 0.12s)
+
+[21:24:25] [AGENT ACTION] Computing candidate ATS match score & identifying missing role skills...
+[21:24:25] [GEMINI REQUEST]
+Model: gemini-3.6-flash
+Purpose: ATS Compatibility Scoring & Resume Improvement Recommendations
+
+[21:24:25] [GEMINI RESPONSE]
+Status: SUCCESS (HTTP 200)
+Output Size: 1,842 characters
+Duration: 1.85s
+
+------------------------------------------------------------
+🧠 MEMORY SYSTEM
+------------------------------------------------------------
+[21:24:25] [WRITE] Saved student profile for 'Alice Smith' with ATS Score 65.0% to SQLite database.
+[21:24:25] [MEMORY RESULT] Strong: 5 | Weak: 4 | Gaps: 4 | ATS Score: 65.0%
+[MEMORY COMPLETE]
+
+[21:24:25] [AGENT RESULT] Profile analysis complete. ATS Match Score: 65.0%. Identified 4 skill gaps.
+[AGENT END] Profile Analysis Agent (Duration: 2.15s)
+
+[21:24:25] [STATE TRANSITION] PROFILE_ANALYSIS -> COMPANY_RESEARCH
+
+------------------------------------------------------------
+🔍 COMPANY & ROLE RESEARCH TOOL
+------------------------------------------------------------
+[21:24:25] [TOOL START] Company Research Tool
+[TOOL INPUT] Company: 'Google' | Role: 'Backend Engineer'
+[21:24:25] [TOOL PROCESS] Executing web search query: 'Google Backend Engineer interview process technical skills'
+[21:24:27] [TOOL RESULT] Live research complete. Retained target hiring requirements & official portal links.
+[TOOL END] Company Research Tool (Duration: 2.36s)
+
+[21:24:27] [STATE TRANSITION] COMPANY_RESEARCH -> ROADMAP_GENERATION
+
+------------------------------------------------------------
+🗺️ DYNAMIC ROADMAP AGENT
+------------------------------------------------------------
+[21:24:27] [AGENT START] Roadmap Agent
+[INPUT] Candidate: 'Alice Smith' | Days: 7 | Hours/Day: 3.0 | Role: Backend Engineer
+
+[21:24:27] [AGENT ACTION] Querying Gemini API to generate custom day-by-day preparation schedule...
+[21:24:27] [GEMINI REQUEST]
+Model: gemini-3.5-flash-lite
+Purpose: Roadmap Schedule Generation (7 Days) for Alice Smith
+
+[21:24:37] [GEMINI RESPONSE]
+Status: SUCCESS (HTTP 200)
+Output Size: 8,783 characters
+Duration: 9.99s
+
+------------------------------------------------------------
+🧠 MEMORY SYSTEM
+------------------------------------------------------------
+[21:24:37] [WRITE] Saved 7-day roadmap for candidate 'Alice Smith' to SQLite database.
+[21:24:37] [MEMORY RESULT] Total Days: 7 | Overview Length: 376 chars
+[MEMORY COMPLETE]
+
+[21:24:37] [AGENT RESULT] Roadmap generated successfully with 7 personalized study days.
+[AGENT END] Roadmap Agent (Duration: 10.02s)
+
+[21:24:37] [STATE TRANSITION] ROADMAP_GENERATION -> MOCK_TEST_GENERATION
+
+------------------------------------------------------------
+📝 DYNAMIC MOCK TEST AGENT
+------------------------------------------------------------
+[21:24:37] [AGENT START] Mock Test Agent
+[INPUT] Candidate: 'Alice Smith' | Target Question Count: 55 | Role: Backend Engineer
+
+[21:24:37] [TOOL START] Question Generator Tool
+[TOOL INPUT] target_count=55, role='Backend Engineer'
+[21:24:37] [TOOL PROCESS] Querying Gemini API in structured batches for dynamic MCQs
+[21:25:53] [TOOL RESULT] 55 valid dynamic MCQs generated and validated (4 options per question).
+[TOOL END] Question Generator Tool (Duration: 76.21s)
+
+[21:25:53] [AGENT RESULT] Mock test created successfully with 55 distinct MCQs.
+[AGENT END] Mock Test Agent (Duration: 76.22s)
+
+[21:25:53] [STATE TRANSITION] MOCK_TEST_GENERATION -> COMPLETED
+
+============================================================
+[PIPELINE] WORKFLOW COMPLETED SUCCESSFULLY IN 164.93S
+   Generated 7 Roadmap Days & 55 MCQs | Session: 3ff359a9-de62-4c8f-a27a-dd31e26419c3
+============================================================
+
+------------------------------------------------------------
+📊 PERFORMANCE EVALUATION (POST TEST SUBMISSION)
+------------------------------------------------------------
+[21:26:10] [STATE TRANSITION] COMPLETED -> PERFORMANCE_ANALYSIS
+[21:26:10] [AGENT START] Performance Agent
+[INPUT] Candidate submission received for Session 3ff359a9-de62-4c8f-a27a-dd31e26419c3
+
+[21:26:10] [TOOL START] Performance Analyzer Tool
+[TOOL INPUT] Comparing 55 submitted answers against verified answer key...
+[21:26:10] [TOOL PROCESS] Calculating percentage score & topic accuracy...
+[21:26:10] [TOOL RESULT] Score: 68.2% (37/55 Correct). Weak Topics: ['System Design', 'DBMS Indexing']
+[TOOL END] Performance Analyzer Tool (Duration: 0.05s)
+
+------------------------------------------------------------
+🧠 MEMORY SYSTEM
+------------------------------------------------------------
+[21:26:10] [WRITE] Updated test attempt performance & saved weak topics ['System Design', 'DBMS Indexing'] to SQLite.
+[21:26:10] [MEMORY RESULT] Test Result Saved (Attempt 1)
+[MEMORY COMPLETE]
+
+[21:26:10] [AGENT ACTION] Reinforcing schedule priorities for 2 weak topics...
+[21:26:10] [AGENT RESULT] Adaptive schedule updated. Prioritized 'System Design' and 'DBMS Indexing' with extra review hours.
+[AGENT END] Performance Agent (Duration: 0.18s)
+```
+
+---
+
+## Terminal Demonstration Procedure (For Academic/Professor Evaluation)
+
+To demonstrate the internal multi-agent execution, tool calls, and persistent memory to an evaluator or professor:
+
+1. **Launch Backend Server**:
+   Start the FastAPI server in Terminal 1:
+   ```powershell
+   python -m uvicorn backend.main:app --reload --port 8000
+   ```
+2. **Launch Frontend Server**:
+   Start the React Vite app in Terminal 2:
+   ```powershell
+   cd frontend
+   npm run dev
+   ```
+3. **Open Web Browser**:
+   Navigate to `http://localhost:5173`. Position the browser window side-by-side with Terminal 1.
+4. **Register Candidate**:
+   Click **"Register / Fill Details"**, upload a PDF resume, specify a candidate name, target company (e.g. `Google`), target role (e.g. `Backend Engineer`), prep timeframe (e.g. `7 days`), and daily study hours (`3 hours`).
+5. **Observe Real-Time Terminal Execution**:
+   - Point out `[ORCHESTRATOR]` initializing the workflow.
+   - Point out `[AGENT START] Profile Analysis Agent` and `[TOOL START] Resume Parser` parsing the PDF text.
+   - Point out `[TOOL START] Company Research Tool` executing web searches.
+   - Point out `[GEMINI REQUEST]` models (`gemini-3.6-flash` / `gemini-3.5-flash-lite`) and response metrics.
+   - Point out `[MEMORY WRITE]` saving data to the SQLite database.
+6. **Take Mock Assessment**:
+   Navigate to the **AI Mock Test** tab, complete the 50–60 question quiz, and click **Submit Test**.
+7. **Observe Performance Analyzer & Adaptive Learning**:
+   Watch Terminal 1 display `[TOOL START] Performance Analyzer Tool`, showing pure Python deterministic scoring (e.g. 68.2%), weak topic detection, and `[MEMORY WRITE]` updating weak topic priorities.
+8. **Demonstrate Session Persistence**:
+   Log out, then sign back in as the returning candidate. Point out that the system performs `[MEMORY READ]`, loads all saved roadmaps instantly, and bypasses redundant agent execution while preserving updated weak topics for future preparation sessions.
+
+---
+
 ## Installation & Running Locally
 
 ### Prerequisites
