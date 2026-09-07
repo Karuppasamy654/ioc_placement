@@ -69,7 +69,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
       const res = await registerUser(formData);
       if (res.status === 'success') {
-        setSuccessMsg('Account created & resume validated successfully!');
+        setSuccessMsg('Account created & resume validated! View your ATS Resume Score & Fixes in the top menu.');
         setTimeout(() => {
           onAuthSuccess(res.user, null, res.session_id);
           onClose();

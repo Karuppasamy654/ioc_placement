@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, User, Activity, Calendar, FileText, CheckSquare, Award, Globe, AlertCircle, LogIn, UserCheck } from 'lucide-react';
 
-import StudentForm from './components/StudentForm';
 import AgentActivity from './components/AgentActivity';
 import Roadmap from './components/Roadmap';
 import ResumeGap from './components/ResumeGap';
@@ -13,11 +12,11 @@ import AuthModal from './components/AuthModal';
 import { preparePlacement, fetchSessionStatus, fetchMockTest, submitTestAnswers } from './api';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('setup'); // setup, activity, roadmap, gaps, test, results, sources
+  const [activeTab, setActiveTab] = useState('activity'); // activity, roadmap, gaps, test, results, sources
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
 
   const [sessionId, setSessionId] = useState('');
@@ -72,31 +71,12 @@ export default function App() {
       setSessionId(newSessionId);
       setIsLoading(true);
       setActiveTab('activity');
-    }
-  };
-
-  const handleFormSubmit = async (formData) => {
-    setIsLoading(true);
-    setErrorMessage('');
-    setProfile(null);
-    setRoadmap(null);
-    setMockTest(null);
-
-    try {
-      const res = await preparePlacement(formData);
-      if (res.status === 'success' && res.session_id) {
-        setSessionId(res.session_id);
-        // Switch tab IMMEDIATELY to show live terminal logs streaming!
-        setActiveTab('activity');
-      } else {
-        setErrorMessage('Failed to start preparation pipeline.');
-        setIsLoading(false);
+    } else if (history && history.length > 0) {
+      // Load history
+      const lastSession = history[history.length - 1];
+      if (lastSession && lastSession.session_id) {
+        setSessionId(lastSession.session_id);
       }
-    } catch (err) {
-      console.error(err);
-      const detailMsg = err.response?.data?.detail || 'Error communicating with multi-agent backend server.';
-      setErrorMessage(detailMsg);
-      setIsLoading(false);
     }
   };
 
@@ -135,18 +115,12 @@ export default function App() {
           </div>
           <div className="logo-text">
             <h1>AI Placement Agent</h1>
-            <p>Adaptive Mock Test & Placement Preparation System</p>
+            <p>Adaptive Placement Preparation & Resume ATS Scoring</p>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <nav className="nav-tabs">
-            <button
-              className={`tab-btn ${activeTab === 'setup' ? 'active' : ''}`}
-              onClick={() => setActiveTab('setup')}
-            >
-              <User size={15} /> Setup
-            </button>
             <button
               className={`tab-btn ${activeTab === 'activity' ? 'active' : ''}`}
               onClick={() => setActiveTab('activity')}
@@ -158,14 +132,14 @@ export default function App() {
               onClick={() => setActiveTab('roadmap')}
               disabled={!roadmap}
             >
-              <Calendar size={15} /> Roadmap
+              <Calendar size={15} /> Roadmap Schedule
             </button>
             <button
               className={`tab-btn ${activeTab === 'gaps' ? 'active' : ''}`}
               onClick={() => setActiveTab('gaps')}
               disabled={!profile}
             >
-              <FileText size={15} /> Skill Gaps & ATS
+              <FileText size={15} /> ATS Resume Score & Fixes
             </button>
             <button
               className={`tab-btn ${activeTab === 'test' ? 'active' : ''}`}
@@ -199,7 +173,7 @@ export default function App() {
           ) : (
             <button
               onClick={() => setIsAuthModalOpen(true)}
-              className="btn btn-secondary"
+              className="btn btn-primary"
               style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <LogIn size={15} /> Login / Register
@@ -236,11 +210,20 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'setup' && (
-          <StudentForm onSubmit={handleFormSubmit} isLoading={isLoading} />
+        {!currentUser && !sessionId && (
+          <div className="card" style={{ textAlign: 'center', padding: '3.5rem 2rem', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid var(--accent-cyan)' }}>
+            <Bot size={48} color="var(--accent-cyan)" style={{ marginBottom: '1rem' }} />
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>Welcome to AI Placement Agent</h2>
+            <p style={{ color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto 1.5rem auto', fontSize: '0.95rem' }}>
+              Please register or log in to validate your resume, calculate your ATS Compatibility Score, and generate a 100% personalized preparation roadmap.
+            </p>
+            <button onClick={() => setIsAuthModalOpen(true)} className="btn btn-primary" style={{ padding: '0.75rem 1.8rem', fontSize: '1rem' }}>
+              <LogIn size={18} style={{ display: 'inline', marginRight: '6px' }} /> Register or Sign In Now
+            </button>
+          </div>
         )}
 
-        {activeTab === 'activity' && (
+        {activeTab === 'activity' && (sessionId || currentUser) && (
           <AgentActivity sessionId={sessionId} isCompleted={Boolean(roadmap)} />
         )}
 
