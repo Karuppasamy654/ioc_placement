@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "placement_memory.db"))
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=60.0)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -17,6 +17,8 @@ def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = get_db_connection()
     cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    cursor.execute("PRAGMA busy_timeout=60000;")
 
     # 0. User Accounts Table for Authentication
     cursor.execute("""
