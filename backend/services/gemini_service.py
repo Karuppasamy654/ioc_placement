@@ -24,10 +24,7 @@ class GeminiService:
         self.api_key = os.getenv("GEMINI_API_KEY", "")
         self.models = [
             "gemini-3.6-flash",
-            "gemini-3.5-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash"
+            "gemini-3.5-flash-lite"
         ]
         self.endpoint_base = "https://generativelanguage.googleapis.com/v1beta/models"
 

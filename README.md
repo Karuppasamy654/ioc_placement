@@ -1,203 +1,332 @@
-# AGENTIC AI PLACEMENT PREPARATION, RESUME ATS VALIDATION & OBSERVABILITY SYSTEM
+# IOC Placement — Agentic AI Placement Preparation System
 
-[![Agentic AI](https://img.shields.io/badge/Architecture-Agentic%20AI-00f2fe?style=for-the-badge)](https://github.com/Karuppasamy654/ioc_placement)
-[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-10b981?style=for-the-badge)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/Frontend-React%2018-4facfe?style=for-the-badge)](https://react.dev)
-[![SQLite Memory](https://img.shields.io/badge/Memory-SQLite%203-ff9900?style=for-the-badge)](https://sqlite.org)
-[![Gemini API](https://img.shields.io/badge/AI%20Engine-Gemini%20Flash-7f53ac?style=for-the-badge)](https://ai.google.dev)
+**IOC Placement** is an enterprise-grade Agentic AI platform designed to automate, personalize, and optimize campus placement preparation. The system constructs individual preparation workflows based on candidate profile inputs, extracted resume data, target company benchmarks, target job roles, available preparation timeframes, and historical performance metrics.
+
+By integrating multi-agent orchestration, LLM reasoning (via Google Gemini API), deterministic Python tools, live company research, automated resume parsing, persistent SQLite memory, and an adaptive feedback loop, the platform provides end-to-end placement readiness evaluation and day-by-day study scheduling.
 
 ---
 
-## SECTION 1: Executive Summary & Project Overview
+## Project Overview
 
-The **Agentic AI Placement Preparation System** is an enterprise-grade multi-agent software engineering platform designed to deliver personalized, adaptive, and observable campus placement preparation.
+Traditional placement preparation platforms operate passively: students are presented with static roadmaps, pre-fabricated generic question banks, and uncoordinated chatbots. These approaches fail to account for candidate resume content, specific target role requirements, or historical performance across preparation sessions.
 
-Traditional placement preparation platforms rely on static roadmaps, pre-fabricated generic question banks, and uncoordinated chatbots. In contrast, this project implements a **closed-loop multi-agent architecture** driven by Google Gemini LLM reasoning, specialized external deterministic tools, real-time web research, structured terminal logging, and a **persistent SQLite application memory layer**.
+This project implements an **autonomous closed-loop multi-agent architecture**. When a candidate registers or initiates a session, an Orchestrator Agent coordinates a pipeline of specialized AI agents and deterministic tools:
 
-### Core Objectives
-1. **Candidate Authentication & Resume Validation**: Secure user registration and login in SQLite with strict verification of resume file formats (`.pdf`/`.docx`), readable text length ($\ge 100$ chars), and fuzzy candidate name matching.
-2. **ATS Resume Match Scoring & Actionable Fixes**: Calculates a $0-100\%$ ATS compatibility score against target role standards, highlighting missing role skills and specific resume layout modifications.
-3. **Autonomous Market Research & Curated Links**: Scrapes real-time hiring criteria and provides direct official application URLs (e.g. `careers.google.com`) and verified technical study resources (LeetCode, GeeksforGeeks, MDN, System Design Primer).
-4. **Tailored Study Roadmaps & Calendar View**: Generates custom multi-day schedules with a **Calendar View grid tab** and 1-click **iCalendar (`.ics`) file export**.
-5. **Dynamic 50–60 MCQ Placement Assessments**: Constructs non-prewritten, candidate-tailored technical assessments evaluated with 4-option precision.
-6. **Closed-Loop Adaptive Learning**: Automatically modifies upcoming study schedules based on deterministic test performance metrics.
-7. **Persistent Cross-Session Memory**: Stores candidate preparation history in SQLite so that returning users load saved profiles/roadmaps instantly upon login without re-running agent execution.
-8. **Rich Terminal Observability**: Outputs clean, structured, human-readable terminal banners, agent activity logs, tool execution timers, and Gemini API request/response metrics.
+```
+Candidate Input & Resume Upload
+              │
+              ▼
+    FastAPI Web Backend
+              │
+              ▼
+      Orchestrator Agent
+              │
+  ┌───────────┴───────────┐
+  ▼                       ▼
+New Registration        User Login
+  │                       │
+  ▼                       ▼
+Agent Execution Pipeline  Load Saved Memory
+  ├─ Profile Analysis       (SQLite Database)
+  ├─ Resume Validation            │
+  ├─ Company Research             ▼
+  ├─ Skill Gap Analysis   Direct Roadmap Access
+  ├─ Roadmap Generation
+  └─ MCQ Generation
+              │
+              ▼
+    Mock Test Assessment
+              │
+              ▼
+   Performance Analyzer
+              │
+              ▼
+     Adaptive Schedule Loop
+              │
+              ▼
+Persistent Cross-Session Memory
+```
+
+The system is **not** a simple frontend wrapper around an LLM endpoint. It delegates specialized tasks to specialized components:
+- **LLM Reasoning**: Used where unstructured language understanding or creative synthesis is required (parsing complex requirements, generating structured MCQs, computing ATS feedback).
+- **Deterministic Python Operations**: Used where mathematical precision or strict verification is required (parsing PDF text, evaluating test score percentages, calculating topic accuracy, managing database records, generating `.ics` iCalendar exports).
 
 ---
 
-## SECTION 2: How to Run & View Terminal Execution Live
+## Problem Statement
 
-### Step 1: Open Terminal & Start Backend Server
+Campus placement preparation presents several structural challenges for candidates:
 
-Open your terminal window (PowerShell / Command Prompt) and run:
+1. **Generic Preparation Plans**: Preparation schedules are rarely customized to a student's existing skill level, available daily hours, or prep timeframe.
+2. **Superficial Resume Consideration**: Traditional systems ignore the candidate's actual resume text, leading to redundant study of topics the student has already mastered.
+3. **Evolving Target Company Requirements**: Company interview patterns and skill priorities vary significantly across organizations (e.g., Google vs. startup roles).
+4. **Unidentified Skill Gaps**: Candidates lack objective visibility into gaps between their current resume profile and target role benchmarks.
+5. **Lack of Continuous Learning History**: Most test platforms evaluate sessions in isolation, failing to track repeated weaknesses across multiple attempts.
+6. **Static, Non-Adaptive Roadmaps**: Study schedules do not adjust when a student scores poorly on specific technical topics during practice tests.
 
-```powershell
-cd D:\Documents\IOC_PROJECT
-python -m uvicorn backend.main:app --reload --port 8000
-```
+### How IOC Placement Resolves These Challenges
 
-### Step 2: Open Second Terminal & Start Frontend
-
-In a second terminal window, start the React Vite UI:
-
-```powershell
-cd D:\Documents\IOC_PROJECT\frontend
-npm run dev
-```
-
-### Step 3: Trigger Workflow & Watch Live Terminal Output
-
-1. Open your browser at **`http://localhost:5173`** (or `http://localhost:8000`).
-2. Click **Login / Register** in the top right.
-3. Select **Register**, fill in candidate details, upload your PDF/Word resume, and click **Complete Registration**.
-4. **Look at your 1st Terminal window!** You will see the complete multi-agent workflow streaming live in real time:
-
-```text
-============================================================
-[PIPELINE] AGENTIC AI PLACEMENT PREPARATION PIPELINE
-   Candidate: Alice Smith | Role: Backend Engineer @ Google | Session: 8f3a921d
-============================================================
-
-[STATE TRANSITION] INIT -> PROFILE_ANALYSIS
-
-------------------------------------------------------------
-[👤] PROFILE ANALYSIS AGENT
-------------------------------------------------------------
-[AGENT START] Profile Analysis Agent
-🧠 MEMORY SYSTEM
-[READ] Querying persistent memory DB for prior sessions of student 'Alice Smith'...
-[MEMORY COMPLETE]
-
-[AGENT ACTION] Sending candidate profile & resume to Gemini for ATS compatibility scoring...
-[GEMINI REQUEST] Model: gemini-3.6-flash | Purpose: Profile ATS Score & Gap Analysis for Alice Smith
-[GEMINI RESPONSE] Status: SUCCESS (HTTP 200) | Duration: 4.82s
-
-🧠 MEMORY SYSTEM
-[WRITE] Saved student profile for 'Alice Smith' with ATS Score 78.0% to SQLite database.
-[AGENT RESULT] Profile analysis complete. ATS Match Score: 78.0%.
-
-[STATE TRANSITION] PROFILE_ANALYSIS -> COMPANY_RESEARCH
-
-------------------------------------------------------------
-[🔍] COMPANY & ROLE RESEARCH TOOL
-------------------------------------------------------------
-[TOOL START] Company Research Tool
-[TOOL PROCESS] Executing web search query: 'Google Backend Engineer interview process placement skills'
-[TOOL RESULT] Retrieved hiring criteria with live web sources.
-
-[STATE TRANSITION] COMPANY_RESEARCH -> ROADMAP_GENERATION
-
-------------------------------------------------------------
-[🗺️] DYNAMIC ROADMAP AGENT
-------------------------------------------------------------
-[AGENT START] Roadmap Agent
-[GEMINI REQUEST] Model: gemini-3.5-flash-lite | Purpose: 14-Day Roadmap Schedule
-🧠 MEMORY SYSTEM
-[WRITE] Saved 14-day roadmap for candidate 'Alice Smith' to SQLite database.
-
-[STATE TRANSITION] ROADMAP_GENERATION -> MOCK_TEST_GENERATION
-
-------------------------------------------------------------
-[📝] DYNAMIC MOCK TEST AGENT
-------------------------------------------------------------
-[AGENT START] Mock Test Agent
-[TOOL START] Question Generator Tool
-[TOOL PROCESS] Querying Gemini API in structured batches for 55 dynamic MCQs...
-[TOOL RESULT] 55 valid dynamic MCQs generated and validated (4 options per question).
-
-============================================================
-[PIPELINE] WORKFLOW COMPLETED SUCCESSFULLY IN 52.41S
-   Generated 14 Roadmap Days & 55 MCQs | Session: 8f3a921d
-============================================================
-```
+- **Personalized Candidate Profiling**: Synthesizes self-reported skills with parsed resume data to identify exact candidate competencies.
+- **ATS Resume Match Scoring**: Evaluates candidate resumes against target role criteria, outputting a 0–100% compatibility score and specific resume layout/bullet-point improvements.
+- **Live & Curated Market Research**: Gathers hiring criteria, technical stack requirements, official career application URLs, and verified technical study links (LeetCode, GeeksforGeeks, MDN, System Design Primer).
+- **Dynamic Day-by-Day Scheduling**: Constructs custom preparation schedules matching exact candidate timeframes ($1$ to $90$ days) and daily study hours.
+- **Dynamic Placement Assessment**: Constructs $50$–$60$ question technical mock assessments dynamically generated for the candidate's target role.
+- **Closed-Loop Adaptive Learning**: Automatically modifies upcoming study schedules following test submissions, elevating weak topic priorities (`High` priority, `[REINFORCED]` tags, extra time slots).
+- **Persistent Cross-Session Memory**: Stores candidate performance in an embedded SQLite database (`placement_memory.db`), allowing returning users to load saved roadmaps instantly and carrying weak topics into future preparation sessions.
 
 ---
 
-## SECTION 3: System Architecture & Mermaid Diagrams
+## System Architecture
 
-The application operates as a directed acyclic state graph (DAG) governed by an **Orchestrator Agent**, coordinating autonomous agents, deterministic tools, and a persistent SQLite database.
+The architecture separates concerns into a React Vite frontend, a FastAPI HTTP API, an Agentic Orchestrator, specialized AI agents, deterministic Python tools, a centralized Gemini API client service, and an embedded SQLite memory layer.
 
 ```mermaid
-graph TD
-    A[User Registration & Resume Upload] --> B[Orchestrator Agent]
-    
-    subgraph "Persistent Application Memory Layer (SQLite)"
-        DB[(placement_memory.db)]
+flowchart TD
+    subgraph Frontend ["React 18 Frontend (Vite)"]
+        UI[App Container]
+        AuthModal[AuthModal Component]
+        RoadmapUI[Roadmap & Calendar Grid UI]
+        ResumeUI[ResumeGap & ATS Score UI]
+        TestUI[MockTest Component]
+        ResultUI[Results & Adaptive UI]
+        AgentUI[AgentActivity Log Viewer]
     end
 
-    subgraph "Agentic Pipeline Execution (New Registration)"
-        B -->|INIT -> PROFILE| C[Profile Analysis Agent]
-        C <--> DB
-        C -->|Resume Bytes| T1[Resume Parser & Validator Tool]
-        
-        C -->|PROFILE -> RESEARCH| D[Company & Role Research Tool]
-        D -->|DuckDuckGo Web API| W[Live Web Sources & Apply Portals]
-        
-        D -->|RESEARCH -> ROADMAP| E[Roadmap Agent]
-        E <--> DB
-        
-        E -->|ROADMAP -> MOCK_TEST| F[Mock Test Agent]
-        F --> T2[Question Generator Tool]
-        T2 <--> G[Gemini API Service Cascade]
+    subgraph Backend ["FastAPI Backend (backend/main.py)"]
+        API[API Endpoints]
+        BG[BackgroundTasks Execution]
     end
 
-    subgraph "Login & Returning User Flow"
-        L[User Login] -->|Bypasses Agent Execution| DB
-        DB -->|Loads Saved Profile, ATS Score & Roadmap| R[Roadmap Schedule & ATS View]
+    subgraph Orchestration ["Agentic Layer"]
+        Orchestrator[Orchestrator Agent]
+        State[SessionState & StateManager]
     end
 
-    subgraph "Assessment & Adaptive Learning Loop"
-        F --> H[Student Takes Mock Assessment]
-        H -->|Quiz Submission| B2[Orchestrator Submission Handler]
-        B2 -->|SUBMITTED -> EVALUATION| I[Performance Analysis Agent]
-        I --> T3[Performance Analyzer Tool]
-        I <--> DB
-        I -->|EVALUATION -> ADAPTIVE| J[Adaptive Learning Loop]
-        J -->|Schedule Modification| E
+    subgraph Agents ["Specialized AI Agents"]
+        ProfileAgent[Profile Analysis Agent]
+        RoadmapAgent[Roadmap Agent]
+        MockAgent[Mock Test Agent]
+        PerfAgent[Performance Analysis Agent]
     end
+
+    subgraph Tools ["Deterministic Tool Ecosystem"]
+        ResumeTool[Resume Parser & Validator Tool]
+        ResearchTool[Company Research Tool]
+        QuestionTool[Question Generator Tool]
+        PerfTool[Performance Analyzer Tool]
+        ICSTool[iCalendar Exporter]
+    end
+
+    subgraph Services ["External Services & Storage"]
+        Gemini[Gemini API Service Cascade]
+        DB[(SQLite DB: placement_memory.db)]
+    end
+
+    UI -->|HTTP Requests| API
+    AuthModal -->|POST /api/register| API
+    AuthModal -->|POST /api/login| API
+
+    API -->|Register User| DB
+    API -->|Authenticate| DB
+    API -->|Background Pipeline| BG
+    BG --> Orchestrator
+
+    Orchestrator --> State
+    Orchestrator --> ProfileAgent
+    Orchestrator --> ResearchTool
+    Orchestrator --> RoadmapAgent
+    Orchestrator --> MockAgent
+    Orchestrator --> PerfAgent
+
+    ProfileAgent --> ResumeTool
+    ProfileAgent --> Gemini
+    ProfileAgent --> DB
+
+    ResearchTool -->|Web Search| W[DuckDuckGo / DDGS Search]
+
+    RoadmapAgent --> Gemini
+    RoadmapAgent --> DB
+
+    MockAgent --> QuestionTool
+    QuestionTool --> Gemini
+
+    PerfAgent --> PerfTool
+    PerfAgent --> Gemini
+    PerfAgent --> DB
+
+    RoadmapUI -->|GET /api/export-calendar-ics| ICSTool
 ```
 
 ---
 
-## SECTION 4: Multi-Agent System Roles & State Graph
+## Detailed Agent Workflow & Specification
 
-| Agent Name | Core Responsibilities | Inputs | Primary Outputs | State Transition |
-| :--- | :--- | :--- | :--- | :--- |
-| **Orchestrator Agent** | Pipeline execution control, session state management, terminal banners, event logging, execution timing. | `StudentInput`, Resume File | `SessionState` | `INIT ➔ COMPLETED` |
-| **Profile Analysis Agent** | Resume ATS compatibility scoring ($0-100\%$), skill extraction, candidate capability mapping, skill gap analysis. | `StudentInput`, `ResumeData`, SQLite History | `StudentProfile` | `PROFILE_ANALYSIS` |
-| **Roadmap Agent** | Multi-day study schedule generation, daily hour balancing, priority allocation for past/present weak topics. | `StudentProfile`, `CompanyResearch`, SQLite History | `Roadmap` | `ROADMAP_GENERATION` |
-| **Mock Test Agent** | Coordinates 50-60 dynamic MCQ generation, balances core CS vs role-specific questions. | `StudentProfile`, `CompanyResearch`, `Roadmap` | `MockTest` | `MOCK_TEST_GENERATION` |
-| **Performance Analysis Agent** | Deterministic score evaluation, topic accuracy mapping, memory write, adaptive schedule reinforcement. | `MockTest`, `QuizSubmission`, `Roadmap` | `PerformanceReport`, `AdaptiveAdjustment` | `PERFORMANCE_EVALUATION` |
+### 1. Orchestrator Agent (`backend/agents/orchestrator.py`)
+
+- **Role**: Coordinates overall pipeline execution, state initialization, state transitions, timing, terminal logging, and test submission processing.
+- **Inputs**: `StudentInput`, resume file path (optional), `session_id`, `QuizSubmission`.
+- **Processing**:
+  1. Creates or retrieves `SessionState` via `StateManager`.
+  2. Executes state transitions: `INIT ➔ PROFILE_ANALYSIS ➔ COMPANY_RESEARCH ➔ ROADMAP_GENERATION ➔ MOCK_TEST_GENERATION ➔ COMPLETED`.
+  3. Formats colorized terminal section banners and calculates execution durations.
+  4. On test submission: triggers `PerformanceAnalysisAgent`, applies adaptive schedule updates, and logs state transitions (`SUBMITTED ➔ PERFORMANCE_EVALUATION ➔ ADAPTIVE_LEARNING ➔ COMPLETED`).
+- **Outputs**: Active `session_id`, updated `SessionState`, evaluation results (`PerformanceReport`, `AdaptiveAdjustment`).
+
+### 2. Profile Analysis Agent (`backend/agents/profile_agent.py`)
+
+- **Role**: Evaluates student capability, extracts resume skills, queries persistent memory for past weak topics, calculates ATS compatibility score ($0$–$100\%$), and identifies skill gaps.
+- **Inputs**: `StudentInput`, `ResumeData` (optional), SQLite memory history.
+- **Processing**:
+  1. Queries SQLite memory (`MemoryManager.get_student_history`) for historical weak topics.
+  2. Combines self-reported skills with extracted resume skills.
+  3. Constructs a structured JSON prompt for Gemini API requesting ATS match score, matched/missing skills, formatting feedback, and actionable resume fixes.
+  4. Merges historical unmastered topics into current weak areas.
+  5. Saves updated student profile to SQLite database (`student_profiles` table).
+- **Outputs**: `StudentProfile` schema containing `ats_resume_score` and `resume_score_details`.
+
+### 3. Roadmap Agent (`backend/agents/roadmap_agent.py`)
+
+- **Role**: Generates a day-by-day study schedule matching candidate preparation days ($1$–$90$ days) and daily study hours ($1.0$–$16.0$ hrs/day).
+- **Inputs**: `StudentProfile`, `CompanyResearch`, SQLite memory history.
+- **Processing**:
+  1. Checks memory history for past unmastered topics.
+  2. Enforces allocation constraints: exact day count, balanced daily hours, high priority for weak topics.
+  3. Queries Gemini API to construct structured JSON roadmap days and tasks.
+  4. Applies `[REINFORCED]` tags and `High` priority to tasks addressing historical weak topics.
+  5. Saves generated roadmap to SQLite database (`roadmaps` table).
+- **Outputs**: `Roadmap` schema containing an overview string and array of `RoadmapDay` objects.
+
+### 4. Mock Test Agent (`backend/agents/mock_test_agent.py`)
+
+- **Role**: Coordinates the generation of a $50$–$60$ question dynamic technical assessment tailored to candidate target role and roadmap topics.
+- **Inputs**: `session_id`, `StudentProfile`, `CompanyResearch`, `Roadmap`, `question_count` (default: 55).
+- **Processing**:
+  1. Queries memory history for past weak topics to ensure proper representation in question selection.
+  2. Delegates question creation to `QuestionGeneratorTool`.
+  3. Constructs `MockTest` object containing target question count and question array.
+- **Outputs**: `MockTest` schema object.
+
+### 5. Performance Analysis Agent (`backend/agents/performance_agent.py`)
+
+- **Role**: Evaluates candidate quiz submissions, calculates deterministic metrics, saves attempt details to memory, and adaptively updates upcoming roadmap days.
+- **Inputs**: `MockTest`, `QuizSubmission`, active `Roadmap`.
+- **Processing**:
+  1. Invokes `PerformanceAnalyzerTool` for deterministic mathematical grading.
+  2. Computes score trend compared to candidate's previous attempt in SQLite DB.
+  3. Saves mock test attempt to SQLite database (`mock_attempts` table).
+  4. Queries Gemini API for specific remediation concepts, practice tasks, and next-day schedule changes.
+  5. Iterates through upcoming roadmap days, bumping weak topic tasks to `High` priority, applying `[REINFORCED]` prefixes, and scaling duration hours by $1.3\times$.
+  6. Saves adaptive adjustment record to SQLite database (`adaptive_adjustments` table).
+- **Outputs**: Tuple of (`PerformanceReport`, `AdaptiveAdjustment`).
 
 ---
 
-## SECTION 5: Autonomous Tool Ecosystem
+## Specialized Tool Ecosystem
 
-1. **Resume Parser & Validator Tool (`backend/tools/resume_parser.py`)**
-   - **Function**: Validates file extension (`.pdf`/`.docx`), verifies text length ($\ge 100$ chars), and matches candidate name tokens. Categorizes programming languages, frameworks, databases, and projects.
-   - **Terminal Output**: Logs input file size, extraction duration, character count, and itemized skill counts.
+### 1. Resume Parser & Validator Tool (`backend/tools/resume_parser.py`)
 
-2. **Company Research Tool (`backend/tools/company_research.py`)**
-   - **Function**: Performs live web search to gather company hiring criteria, key tech stacks, official application portals (e.g. `careers.google.com`), and verified technical study links (LeetCode, GeeksforGeeks, MDN, System Design Primer).
+- **Validation Method**: `validate_resume(file_path, candidate_name)`
+  - Verifies file format (`.pdf`, `.docx`, `.doc`).
+  - Asserts extracted text length $\ge 100$ characters.
+  - Splits candidate name into tokens ($\ge 3$ chars) and checks if at least one name token exists in extracted resume text.
+  - Returns structured `ResumeValidationResult` with explicit error messages.
+- **Parsing Method**: `parse_file(file_path)`
+  - Reads PDF files using PyMuPDF (`fitz`) or Word files using `python-docx`.
+  - Extracts text, categorizes technical skills, programming languages, frameworks, databases, projects, and work experience into a `ResumeData` object.
 
-3. **Question Generator Tool (`backend/tools/question_generator.py`)**
-   - **Function**: Queries Gemini API in structured batches to produce 50–60 dynamic MCQs (4 options per question, single correct answer, technical explanations).
+### 2. Company Research Tool (`backend/tools/company_research.py`)
 
-4. **Performance Analyzer Tool (`backend/tools/performance_analyzer.py`)**
-   - **Function**: Pure Python deterministic scoring engine. Computes total questions, correct/incorrect counts, percentage score, topic-wise accuracy %, and difficulty breakdown.
+- **Execution Method**: `research_company_and_role(company_name, role_name)`
+  - Executes live web search via DuckDuckGo (`ddgs` / `duckduckgo_search`).
+  - Gathers job role descriptions, key skill requirements, and hiring process details.
+  - Appends official company career application URLs (e.g. `https://careers.google.com` for Google) and verified technical study resources (LeetCode, GeeksforGeeks, MDN Web Docs, System Design Primer, Roadmaps.sh).
+  - Falls back gracefully to role-based industry benchmarks if web search is unavailable (`research_available = False`).
 
-5. **iCalendar (.ics) Exporter (`backend/utils/ics_exporter.py`)**
-   - **Function**: Generates RFC 5545 compliant `.ics` calendar files mapping preparation roadmap days to consecutive dates starting from today.
+### 3. Question Generator Tool (`backend/tools/question_generator.py`)
+
+- **Execution Method**: `generate_mock_test_questions(profile, company_research, roadmap, target_count)`
+  - Queries Gemini API in structured parallel batches:
+    - Batch 1: Core CS Concepts (DSA, DBMS, OOP, OS, Networking).
+    - Batch 2: Target Role & System Design Specific Questions.
+  - Enforces 4 distinct options per question and validates that `correct_answer` strictly matches one of the 4 option strings.
+  - Deduplicates questions using lowercase text hashing.
+  - Synthesizes dynamic domain questions if API batch returns fewer than target count.
+
+### 4. Performance Analyzer Tool (`backend/tools/performance_analyzer.py`)
+
+- **Execution Method**: `analyze_submission(test, submission)`
+  - Pure Python deterministic evaluation engine (zero LLM dependency for grading).
+  - Maps submitted answer strings against question answer keys.
+  - Computes total questions, answered count, correct count, incorrect count, and exact score percentage (`round((correct / total) * 100, 1)`).
+  - Calculates topic-wise accuracy percentages and difficulty accuracy breakdowns (`easy`, `medium`, `hard`).
+  - Categorizes topics into `strong_topics` ($\ge 70\%$ accuracy) and `weak_topics` ($\le 50\%$ accuracy).
+
+### 5. iCalendar Exporter (`backend/utils/ics_exporter.py`)
+
+- **Execution Method**: `generate_ics_content(roadmap, candidate_name)`
+  - Generates standard RFC 5545 iCalendar content mapping roadmap days to consecutive dates starting from today.
+  - Formats `BEGIN:VCALENDAR`, `BEGIN:VEVENT`, event summaries, descriptions, and time bounds (`DTSTART` / `DTEND`).
 
 ---
 
-## SECTION 6: Persistent Memory Architecture (SQLite)
+## LLM vs. Deterministic Task Decomposition
 
-The persistent application memory is managed by SQLite (`backend/memory/placement_memory.db`), supporting 6 relational tables:
+| Task / Feature | Implementation Type | Responsible Module | Rationale |
+| :--- | :--- | :--- | :--- |
+| **Candidate Name & Resume Validation** | Deterministic Python | `resume_parser.py` | String token matching & character counting require absolute accuracy. |
+| **Resume Text & Skill Extraction** | Deterministic Python | `resume_parser.py` | PyMuPDF / python-docx extraction provides fast, reliable text parsing. |
+| **ATS Score & Gap Analysis** | LLM Reasoning | `profile_agent.py` | Requires language understanding to evaluate resume phrasing against job roles. |
+| **Company Hiring Research** | Deterministic Web Scraping | `company_research.py` | DuckDuckGo web search retrieves real-time application URLs and sources. |
+| **Study Roadmap Schedule Generation** | LLM Reasoning | `roadmap_agent.py` | Requires dynamic synthesis of custom daily tasks matched to time constraints. |
+| **MCQ Question Generation** | LLM Reasoning | `question_generator.py` | Creates diverse, non-prewritten technical questions for targeted roles. |
+| **MCQ Option & Correct Answer Verification** | Deterministic Python | `question_generator.py` | Guarantees exactly 4 distinct options and valid answer key matching. |
+| **Test Scoring & Accuracy Calculation** | Deterministic Python | `performance_analyzer.py` | Grading math must be $100\%$ accurate without LLM math hallucinations. |
+| **Progress Trend Comparison** | Deterministic Python | `performance_agent.py` | Compares current percentage score against historical SQLite test records. |
+| **Roadmap Schedule Reinforcement** | Deterministic Python | `performance_agent.py` | Applies $1.3\times$ time scaling, `High` priority, and `[REINFORCED]` tags to weak topics. |
+| **Database Storage & Authentication** | Deterministic Python | `memory_manager.py` | SQLite queries and SHA-256 password hashing. |
+| **iCalendar (.ics) File Generation** | Deterministic Python | `ics_exporter.py` | RFC 5545 calendar string formatting. |
+
+---
+
+## State Management & Workflow Orchestration
+
+Session state is encapsulated in `SessionState` (`backend/models/state.py`) and managed globally by `StateManager`:
+
+```python
+class SessionState:
+    def __init__(self, session_id: str):
+        self.session_id: str = session_id
+        self.student_input: Optional[StudentInput] = None
+        self.resume_data: Optional[ResumeData] = None
+        self.profile: Optional[StudentProfile] = None
+        self.company_research: Optional[CompanyResearch] = None
+        self.roadmap: Optional[Roadmap] = None
+        self.mock_test: Optional[MockTest] = None
+        self.performance: Optional[PerformanceReport] = None
+        self.adaptive_adjustment: Optional[AdaptiveAdjustment] = None
+        self.events: List[AgentEvent] = []
+```
+
+### State Graph Execution Flow (`backend/workflows/placement_graph.py`)
+
+The workflow defines node functions and state transitions:
+1. `INIT ➔ PROFILE_ANALYSIS`: Profile Analysis Agent reads history and generates profile.
+2. `PROFILE_ANALYSIS ➔ COMPANY_RESEARCH`: Company Research Tool fetches web criteria.
+3. `COMPANY_RESEARCH ➔ ROADMAP_GENERATION`: Roadmap Agent creates day-by-day schedule.
+4. `ROADMAP_GENERATION ➔ MOCK_TEST_GENERATION`: Mock Test Agent generates 55 MCQs.
+5. `MOCK_TEST_GENERATION ➔ COMPLETED`: Initial preparation pipeline complete.
+6. `SUBMITTED ➔ PERFORMANCE_EVALUATION`: Performance Analysis Agent evaluates test submission.
+7. `PERFORMANCE_EVALUATION ➔ ADAPTIVE_LEARNING`: Updates upcoming roadmap days.
+8. `ADAPTIVE_LEARNING ➔ COMPLETED`: Closed-loop feedback cycle complete.
+
+---
+
+## Persistent Memory Architecture (SQLite)
+
+Application memory is stored in an embedded SQLite database at `backend/memory/placement_memory.db`.
 
 ```sql
--- 1. Candidate User Accounts
+-- User Accounts
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
@@ -212,7 +341,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Candidate Profiles Table
+-- Student Profiles
 CREATE TABLE IF NOT EXISTS student_profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
@@ -230,7 +359,7 @@ CREATE TABLE IF NOT EXISTS student_profiles (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Mock Test Attempts Table
+-- Mock Attempts
 CREATE TABLE IF NOT EXISTS mock_attempts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT NOT NULL,
@@ -244,11 +373,10 @@ CREATE TABLE IF NOT EXISTS mock_attempts (
     difficulty_accuracy_json TEXT,
     strong_topics_json TEXT,
     weak_topics_json TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(student_name) REFERENCES student_profiles(name)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Generated Roadmaps Table
+-- Roadmaps
 CREATE TABLE IF NOT EXISTS roadmaps (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT UNIQUE NOT NULL,
@@ -260,7 +388,7 @@ CREATE TABLE IF NOT EXISTS roadmaps (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Adaptive Adjustments Table
+-- Adaptive Adjustments
 CREATE TABLE IF NOT EXISTS adaptive_adjustments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT NOT NULL,
@@ -272,59 +400,155 @@ CREATE TABLE IF NOT EXISTS adaptive_adjustments (
 );
 ```
 
----
+### Memory Recall in Practice
 
-## SECTION 7: Execution Workflows: New Registration vs Returning Login
-
-### Workflow 1: New Candidate Registration
-1. User clicks **Login / Register** -> **Register**.
-2. Uploads resume, inputs target role/company, and submits.
-3. System validates format, readable length, and candidate name match.
-4. User account is saved to SQLite `users` table.
-5. System launches multi-agent pipeline in background and opens **Agent Execution** (`activity`) tab to display live streaming logs.
-
-### Workflow 2: Existing User Login
-1. User clicks **Login / Register** -> **Login**.
-2. Inputs registered username and password.
-3. System authenticates credentials and retrieves saved history from SQLite database.
-4. **System bypasses Agent Execution** and immediately opens the personalized **Roadmap Schedule** (`roadmap`) tab with all saved ATS scores and study days loaded.
+When a candidate initiates a session:
+1. `MemoryManager.get_student_history(name)` retrieves all prior attempts, profiles, and roadmaps.
+2. Identifies topics weak in $>1$ attempt (`repeated_weaknesses`).
+3. Passes `past_weak_topics` into `ProfileAnalysisAgent`, `RoadmapAgent`, and `MockTestAgent`.
+4. `RoadmapAgent` elevates study priority (`High`), increases daily hours, and adds `[REINFORCED]` tags to those topics.
 
 ---
 
-## SECTION 8: Automated Test Suites
+## User Registration vs. Returning Login Workflows
 
-Run automated test scripts directly from terminal:
+### 1. New Candidate Registration
+- Candidate registers via `AuthModal.jsx` popup modal.
+- Uploads resume (`.pdf`/`.docx`), inputs target role/company, timeframe, and daily study hours.
+- Backend validates resume format, text length, and candidate name match.
+- User credentials (SHA-256 hashed password) are saved to `users` table.
+- System launches multi-agent preparation pipeline in `BackgroundTasks`.
+- **Frontend View**: Automatically opens the **Agent Execution** (`activity`) tab, streaming real-time terminal logs while data is generated.
 
-```bash
-# Test 1: Full multi-agent preparation pipeline & adaptive assessment
+### 2. Returning Candidate Login
+- Candidate signs in with registered username and password.
+- Backend authenticates credentials and retrieves saved history from SQLite database.
+- **Frontend View**: **Bypasses Agent Execution completely**. Immediately loads saved profile, ATS match score, roadmap schedule, calendar view, and mock test, opening directly on the **Roadmap Schedule** (`roadmap`) tab.
+
+---
+
+## API Documentation
+
+### `POST /api/register`
+Registers user account, validates resume, and triggers preparation pipeline in background task.
+- **Form Parameters**: `username`, `email`, `password`, `name`, `target_company`, `target_role`, `prep_days`, `daily_hours`, `current_skills`, `resume` (file).
+- **Responses**: `200 OK` (success with `session_id` and `user`), `400 Bad Request` (duplicate user/email or resume validation failure).
+
+### `POST /api/login`
+Authenticates registered candidate and retrieves saved session history.
+- **JSON Payload**: `{"username": "...", "password": "..."}`
+- **Responses**: `200 OK` (success with `user`, `history`, `session_id`), `401 Unauthorized` (invalid credentials).
+
+### `POST /api/prepare`
+Triggers preparation pipeline for unauthenticated guest sessions in background task.
+- **Form Parameters**: `name`, `target_company`, `target_role`, `prep_days`, `daily_hours`, `current_skills`, `resume` (file).
+- **Response**: `200 OK` with `session_id`.
+
+### `GET /api/session-status?session_id={id}`
+Polls session state progress.
+- **Response**: `{"status": "completed", "is_complete": true, "profile": {...}, "company_research": {...}, "roadmap": {...}, "mock_test_ready": true}`
+
+### `GET /api/mock-test?session_id={id}`
+Returns generated 50–60 question mock assessment.
+- **Response**: `{"status": "success", "mock_test": {"session_id": "...", "total_questions": 55, "questions": [...]}}`
+
+### `POST /api/submit-test`
+Evaluates quiz submission and applies adaptive learning updates.
+- **JSON Payload**: `{"session_id": "...", "answers": [{"question_index": 0, "selected_option": "..."}]}`
+- **Response**: `{"status": "success", "performance": {...}, "adaptive_adjustment": {...}}`
+
+### `GET /api/export-calendar-ics?session_id={id}`
+Exports current session roadmap as an `.ics` iCalendar file (`text/calendar`).
+
+### `GET /api/agent-events?session_id={id}`
+Returns real-time execution event logs for frontend streaming.
+
+---
+
+## Frontend Architecture
+
+The frontend is built with **React 18** and **Vite**, using Vanilla CSS for glassmorphism styling:
+
+- **`App.jsx`**: Core UI container managing active tabs (`activity`, `roadmap`, `gaps`, `test`, `results`, `sources`), polling session status, and controlling user authentication state.
+- **`AuthModal.jsx`**: Popup modal for candidate Login and Registration with inline validation alert banners.
+- **`AgentActivity.jsx`**: Real-time terminal log viewer streaming agent steps, state transitions, and tool timings.
+- **`Roadmap.jsx`**: Interactive study schedule featuring a **Calendar View Grid** (Day 1 expanded by default, other days collapsible into cards) and **Timeline View**, progress bar, and **"Download iCal (.ics)"** button.
+- **`ResumeGap.jsx`**: **ATS Resume Score & Fixes** tab displaying the $0$–$100\%$ score ring gauge, matched/missing technical skills, and actionable resume formatting suggestions.
+- **`MockTest.jsx`**: Timed technical assessment interface with question navigator grid and option selection.
+- **`Results.jsx`**: Performance report rendering score percentage ring, topic-wise accuracy breakdown, and adaptive schedule changes.
+- **`Sources.jsx`**: Verified technical study resources (LeetCode, GeeksforGeeks, MDN, System Design Primer) and official company career portals (`careers.google.com`).
+- **`api.js`**: Axios HTTP bridge configured for `http://localhost:8000/api`.
+
+---
+
+## Installation & Running Locally
+
+### Prerequisites
+- Python 3.10+
+- Node.js v18+
+
+### 1. Backend Setup
+
+```powershell
+cd D:\Documents\IOC_PROJECT
+
+# Install Python dependencies
+pip install -r requirements.txt
+```
+
+### 2. Frontend Setup
+
+```powershell
+cd frontend
+npm install
+cd ..
+```
+
+### 3. Environment Configuration
+
+Create a `.env` file in the root directory:
+```env
+GEMINI_API_KEY=your_actual_gemini_api_key_here
+PORT=8000
+HOST=0.0.0.0
+```
+
+### 4. Running Backend Server (Terminal 1)
+
+```powershell
+cd D:\Documents\IOC_PROJECT
+python -m uvicorn backend.main:app --reload --port 8000
+```
+
+### 5. Running Frontend Server (Terminal 2)
+
+```powershell
+cd D:\Documents\IOC_PROJECT\frontend
+npm run dev
+```
+
+Open browser at `http://localhost:5173` (or `http://localhost:8000`).
+
+---
+
+## Automated Test Scripts
+
+Run automated backend test suites directly from terminal:
+
+```powershell
+# Test 1: Full multi-agent pipeline & adaptive mock test evaluation
 python backend/tests/test_pipeline.py
 
 # Test 2: Cross-session persistent memory recall (Session 1 vs Session 2)
 python backend/tests/test_memory_and_observability.py
 
-# Test 3: Resume validation, name matching, ATS scoring, user auth, and calendar export
+# Test 3: Resume validation, candidate name matching, ATS scoring, user auth & calendar export
 python backend/tests/test_auth_and_resume_validation.py
 ```
 
 ---
 
-## SECTION 9: Defense Questions & Expert Answers (Academic Viva Q&A)
-
-### Q1: How does your system differ from a standard ChatGPT prompt wrapper?
-**Answer**: ChatGPT wrappers are stateless single-turn interfaces. Our system is an autonomous multi-agent architecture with a shared mutable state graph, 5 specialized deterministic tools, live web research capability, and a persistent SQLite memory database that remembers candidate performance across sessions.
-
-### Q2: How do you validate resumes and prevent candidate name impersonation?
-**Answer**: The `ResumeParserTool.validate_resume` method verifies that uploaded files are text-readable `.pdf` or `.docx` documents (minimum 100 characters). It splits the registered student name into name tokens and performs fuzzy token matching against the extracted resume text. If the name is missing or the file is unreadable, an explicit validation alert is returned.
-
-### Q3: Why is SQLite used for the persistent memory system?
-**Answer**: SQLite provides a zero-configuration, serverless, file-based relational database (`placement_memory.db`) embedded directly in Python standard library (`sqlite3`). It allows instant persistence across runs without requiring external database server installation.
-
-### Q4: How is deterministic accuracy calculated?
-**Answer**: Test scoring is completely decoupled from LLMs. The `PerformanceAnalyzerTool` performs pure Python mathematical matching between student option selections and validated answer keys, computing exact floating-point percentages and topic accuracy ratios.
-
----
-
-## SECTION 10: System Directory Structure
+## Complete Directory Structure
 
 ```text
 IOC_PROJECT/
@@ -339,7 +563,7 @@ IOC_PROJECT/
 │   ├── memory/
 │   │   ├── db.py                   # SQLite DB connection & schema manager
 │   │   ├── memory_manager.py       # Persistence methods for users, profiles, roadmaps
-│   │   └── placement_memory.db     # Active SQLite database file
+│   │   └── placement_memory.db     # Embedded SQLite database file
 │   ├── tools/
 │   │   ├── resume_parser.py        # PyMuPDF & python-docx parser & validator
 │   │   ├── company_research.py     # Live web research & official portal links
@@ -353,11 +577,14 @@ IOC_PROJECT/
 │   ├── models/
 │   │   ├── schemas.py              # Pydantic data schemas
 │   │   └── state.py                # Session state manager
+│   ├── workflows/
+│   │   └── placement_graph.py      # DAG state transition workflow definition
 │   └── tests/
 │       ├── test_pipeline.py
 │       ├── test_memory_and_observability.py
 │       └── test_auth_and_resume_validation.py
 ├── frontend/
+│   ├── dist/                       # Production frontend build static bundle
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── AgentActivity.jsx   # Terminal log execution viewer
@@ -368,9 +595,31 @@ IOC_PROJECT/
 │   │   │   ├── Results.jsx        # Performance metrics & adaptive breakdown
 │   │   │   └── Sources.jsx        # Official careers & curated study resources
 │   │   ├── App.jsx                 # Core UI container
-│   │   └── api.js                  # Axios HTTP bridge
+│   │   ├── api.js                  # Axios HTTP bridge
+│   │   ├── main.jsx
+│   │   └── styles.css              # Glassmorphism styling rules
 │   ├── package.json
 │   └── vite.config.js
-├── README.md                       # Comprehensive documentation
+├── README.md                       # Complete technical project documentation
 └── requirements.txt                # Python dependencies
 ```
+
+---
+
+## Key Dependencies
+
+### Backend Dependencies (`requirements.txt`)
+- `fastapi`: Async HTTP framework for API endpoints.
+- `uvicorn`: ASGI server for FastAPI application.
+- `pydantic`: Schema definition and data validation.
+- `pymupdf` (`fitz`): PDF resume text parsing.
+- `python-docx`: Microsoft Word `.docx` resume parsing.
+- `duckduckgo_search` / `ddgs`: Live web research for company hiring criteria.
+- `httpx` & `urllib3`: HTTP request clients for Gemini API calls.
+- `python-dotenv`: Environment variable management.
+
+### Frontend Dependencies (`frontend/package.json`)
+- `react` & `react-dom`: UI rendering engine (v18).
+- `vite`: Fast frontend bundler and development server.
+- `axios`: HTTP client for backend API communication.
+- `lucide-react`: Modern icon library.
