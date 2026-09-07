@@ -21,57 +21,66 @@ class ResumeParserTool:
         """
         Validates file format, minimum readable text, and verifies candidate name matching.
         """
-        if not file_path or not os.path.exists(file_path):
-            return ResumeValidationResult(
-                is_valid=False,
-                name_matched=False,
-                error_message="Resume file was not uploaded or file path is invalid. Please select a valid PDF/DOCX resume file."
-            )
+        try:
+            if not file_path or not os.path.exists(file_path):
+                return ResumeValidationResult(
+                    is_valid=False,
+                    name_matched=False,
+                    error_message="Resume file was not uploaded or file path is invalid. Please select a valid PDF/DOCX resume file."
+                )
 
-        ext = os.path.splitext(file_path)[1].lower()
-        if ext not in [".pdf", ".docx", ".doc"]:
-            return ResumeValidationResult(
-                is_valid=False,
-                name_matched=False,
-                error_message=f"Invalid file format '{ext}'. Please upload a valid PDF (.pdf) or Word (.docx) resume file."
-            )
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext not in [".pdf", ".docx", ".doc"]:
+                return ResumeValidationResult(
+                    is_valid=False,
+                    name_matched=False,
+                    error_message=f"Invalid file format '{ext}'. Please upload a valid PDF (.pdf) or Word (.docx) resume file."
+                )
 
-        resume_data = ResumeParserTool.parse_file(file_path)
-        extracted_text = resume_data.extracted_text or ""
-        char_count = len(extracted_text.strip())
+            resume_data = ResumeParserTool.parse_file(file_path)
+            extracted_text = (resume_data.extracted_text or "") if resume_data else ""
+            char_count = len(extracted_text.strip())
 
-        if char_count < 100:
-            return ResumeValidationResult(
-                is_valid=False,
-                name_matched=False,
-                character_count=char_count,
-                error_message="Uploaded resume file is unreadable or empty (less than 100 characters extracted). Please upload a text-based PDF/DOCX resume."
-            )
+            if char_count < 100:
+                return ResumeValidationResult(
+                    is_valid=False,
+                    name_matched=False,
+                    character_count=char_count,
+                    error_message="Uploaded resume file is unreadable or empty (less than 100 characters extracted). Please upload a text-based PDF/DOCX resume."
+                )
 
-        # Candidate name matching
-        name_tokens = [t.strip().lower() for t in candidate_name.split() if len(t.strip()) >= 3]
-        text_lower = extracted_text.lower()
-        
-        name_matched = False
-        if not name_tokens:
-            name_matched = True
-        else:
-            name_matched = any(token in text_lower for token in name_tokens)
+            # Candidate name matching safely
+            cand_name_str = candidate_name or ""
+            name_tokens = [t.strip().lower() for t in cand_name_str.split() if len(t.strip()) >= 3]
+            text_lower = extracted_text.lower()
+            
+            name_matched = False
+            if not name_tokens:
+                name_matched = True
+            else:
+                name_matched = any(token in text_lower for token in name_tokens)
 
-        if not name_matched:
+            if not name_matched:
+                return ResumeValidationResult(
+                    is_valid=True,
+                    name_matched=False,
+                    character_count=char_count,
+                    error_message=f"Candidate name '{candidate_name}' was not found anywhere in the uploaded resume. Please upload your own resume matching your registered name."
+                )
+
             return ResumeValidationResult(
                 is_valid=True,
-                name_matched=False,
+                name_matched=True,
                 character_count=char_count,
-                error_message=f"Candidate name '{candidate_name}' was not found anywhere in the uploaded resume. Please upload your own resume matching your registered name."
+                error_message=""
             )
-
-        return ResumeValidationResult(
-            is_valid=True,
-            name_matched=True,
-            character_count=char_count,
-            error_message=""
-        )
+        except Exception as e:
+            print(f"[RESUME VALIDATION ERROR] {e}")
+            return ResumeValidationResult(
+                is_valid=False,
+                name_matched=False,
+                error_message="Resume processing error. Please ensure your uploaded file is a readable PDF or Word document."
+            )
 
     @staticmethod
     def parse_file(file_path: str, state=None) -> ResumeData:
