@@ -8,9 +8,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from typing import Optional
 
-from backend.models.schemas import StudentInput, QuizSubmission
+from backend.models.schemas import StudentInput, QuizSubmission, UserRegisterInput, UserLoginInput
 from backend.models.state import state_manager
 from backend.agents.orchestrator import OrchestratorAgent
+from backend.memory.memory_manager import MemoryManager
+from backend.tools.resume_parser import ResumeParserTool
+from backend.utils.ics_exporter import ICSExporter
 from backend.utils.logger import log_event
 
 app = FastAPI(
@@ -53,6 +56,94 @@ def health_check():
         "version": "1.0.0"
     }
 
+@app.post("/api/register")
+async def register_user(
+    username: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    name: str = Form(...),
+    target_company: str = Form(...),
+    target_role: str = Form(...),
+    prep_days: int = Form(14),
+    daily_hours: float = Form(4.0),
+    current_skills: str = Form(""),
+    resume: Optional[UploadFile] = File(None)
+):
+    try:
+        # Check if username already exists
+        existing = MemoryManager.get_user_by_username(username)
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Username '{username}' is already registered. Please login instead.")
+
+        saved_resume_path = None
+        if resume and resume.filename:
+            ext = os.path.splitext(resume.filename)[1].lower()
+            if ext not in [".pdf", ".docx", ".doc"]:
+                raise HTTPException(status_code=400, detail="Invalid file type. Please upload a valid PDF (.pdf) or Word (.docx) resume.")
+
+            saved_resume_path = os.path.join(TEMP_DIR, f"resume_reg_{username}{ext}")
+            with open(saved_resume_path, "wb") as buffer:
+                shutil.copyfileobj(resume.file, buffer)
+
+            # Strict Resume Validation (Format, readability, candidate name match)
+            val_res = ResumeParserTool.validate_resume(saved_resume_path, name)
+            if not val_res.is_valid or not val_res.name_matched:
+                raise HTTPException(status_code=400, detail=val_res.error_message)
+
+        reg_input = UserRegisterInput(
+            username=username,
+            email=email,
+            password=password,
+            name=name,
+            target_company=target_company,
+            target_role=target_role,
+            prep_days=prep_days,
+            daily_hours=daily_hours,
+            current_skills=current_skills
+        )
+
+        user_acc = MemoryManager.create_user(reg_input)
+
+        # Trigger initial pipeline generation for user
+        session_id = str(uuid.uuid4())
+        student_input = StudentInput(
+            name=name,
+            target_company=target_company,
+            target_role=target_role,
+            prep_days=prep_days,
+            daily_hours=daily_hours,
+            current_skills=current_skills
+        )
+
+        OrchestratorAgent.run_preparation_pipeline_with_session(session_id, student_input, saved_resume_path)
+
+        return {
+            "status": "success",
+            "message": "User account created successfully.",
+            "user": user_acc,
+            "session_id": session_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[API ERROR] /api/register error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/login")
+def login_user(login_data: UserLoginInput):
+    user_acc = MemoryManager.authenticate_user(login_data.username, login_data.password)
+    if not user_acc:
+        raise HTTPException(status_code=401, detail="Invalid username or password. Please check your credentials.")
+
+    # Retrieve existing user session history or profile
+    history = MemoryManager.get_student_history(user_acc.name)
+    
+    return {
+        "status": "success",
+        "user": user_acc,
+        "history": history
+    }
+
 @app.post("/api/prepare")
 async def prepare_placement(
     background_tasks: BackgroundTasks,
@@ -78,11 +169,16 @@ async def prepare_placement(
         if resume and resume.filename:
             ext = os.path.splitext(resume.filename)[1].lower()
             if ext not in [".pdf", ".docx", ".doc"]:
-                raise HTTPException(status_code=400, detail="Invalid file type. Please upload a PDF or DOCX resume.")
-            
+                raise HTTPException(status_code=400, detail="Invalid file type. Please upload a valid PDF (.pdf) or Word (.docx) resume.")
+
             saved_resume_path = os.path.join(TEMP_DIR, f"resume_{name.replace(' ', '_')}{ext}")
             with open(saved_resume_path, "wb") as buffer:
                 shutil.copyfileobj(resume.file, buffer)
+
+            # Strict Resume Validation (Format, text length, candidate name match)
+            val_res = ResumeParserTool.validate_resume(saved_resume_path, name)
+            if not val_res.is_valid or not val_res.name_matched:
+                raise HTTPException(status_code=400, detail=val_res.error_message)
 
         session_id = str(uuid.uuid4())
         
@@ -103,9 +199,31 @@ async def prepare_placement(
             "status": "success",
             "session_id": session_id
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[API ERROR] /api/prepare error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/export-calendar-ics")
+def export_calendar_ics(session_id: str = Query(...)):
+    state = state_manager.get_session(session_id)
+    if not state or not state.roadmap:
+        raise HTTPException(status_code=404, detail="Active study roadmap not found for calendar export.")
+
+    cand_name = state.student_input.name if state.student_input else "Student"
+    ics_content = ICSExporter.generate_ics_content(state.roadmap, candidate_name=cand_name)
+
+    ics_filename = f"placement_prep_{cand_name.replace(' ', '_')}.ics"
+    temp_path = os.path.join(TEMP_DIR, ics_filename)
+    with open(temp_path, "w", encoding="utf-8") as f:
+        f.write(ics_content)
+
+    return FileResponse(
+        temp_path,
+        media_type="text/calendar",
+        filename=ics_filename
+    )
 
 @app.get("/api/session-status")
 def get_session_status(session_id: str = Query(...)):
@@ -161,3 +279,4 @@ def get_agent_events(session_id: str = Query(...)):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+

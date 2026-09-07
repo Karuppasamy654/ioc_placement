@@ -2,6 +2,24 @@ import axios from 'axios';
 
 const API_BASE = 'http://localhost:8000/api';
 
+export const registerUser = async (formData) => {
+  const response = await axios.post(`${API_BASE}/register`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const loginUser = async (loginPayload) => {
+  const response = await axios.post(`${API_BASE}/login`, loginPayload);
+  return response.data;
+};
+
+export const getICSCalendarUrl = (sessionId) => {
+  return `${API_BASE}/export-calendar-ics?session_id=${sessionId}`;
+};
+
 export const preparePlacement = async (formData) => {
   const response = await axios.post(`${API_BASE}/prepare`, formData, {
     headers: {
@@ -36,3 +54,4 @@ export const fetchAgentEvents = async (sessionId) => {
   });
   return response.data;
 };
+

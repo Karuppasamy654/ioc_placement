@@ -1,10 +1,103 @@
+import hashlib
 import json
 import sqlite3
 from typing import Dict, Any, List, Optional
 from backend.memory.db import get_db_connection
-from backend.models.schemas import StudentProfile, ResumeData, Roadmap, PerformanceReport, AdaptiveAdjustment
+from backend.models.schemas import (
+    StudentProfile, ResumeData, Roadmap, PerformanceReport, AdaptiveAdjustment,
+    UserRegisterInput, UserAccount
+)
 
 class MemoryManager:
+    @staticmethod
+    def hash_password(password: str) -> str:
+        return hashlib.sha256(password.strip().encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def create_user(reg: UserRegisterInput) -> UserAccount:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        pwd_hash = MemoryManager.hash_password(reg.password)
+        cursor.execute("""
+        INSERT INTO users (
+            username, email, password_hash, name, target_company, target_role, prep_days, daily_hours, current_skills
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            reg.username.strip().lower(),
+            reg.email.strip().lower(),
+            pwd_hash,
+            reg.name.strip(),
+            reg.target_company.strip(),
+            reg.target_role.strip(),
+            reg.prep_days,
+            reg.daily_hours,
+            reg.current_skills.strip()
+        ))
+
+        user_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        return UserAccount(
+            id=user_id,
+            username=reg.username.strip().lower(),
+            email=reg.email.strip().lower(),
+            name=reg.name.strip(),
+            target_company=reg.target_company.strip(),
+            target_role=reg.target_role.strip(),
+            prep_days=reg.prep_days,
+            daily_hours=reg.daily_hours,
+            current_skills=reg.current_skills.strip()
+        )
+
+    @staticmethod
+    def authenticate_user(username: str, password: str) -> Optional[UserAccount]:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        pwd_hash = MemoryManager.hash_password(password)
+        cursor.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND password_hash = ?", (username.strip(), pwd_hash))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            return UserAccount(
+                id=row["id"],
+                username=row["username"],
+                email=row["email"],
+                name=row["name"],
+                target_company=row["target_company"],
+                target_role=row["target_role"],
+                prep_days=row["prep_days"],
+                daily_hours=row["daily_hours"],
+                current_skills=row["current_skills"] or ""
+            )
+        return None
+
+    @staticmethod
+    def get_user_by_username(username: str) -> Optional[UserAccount]:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (username.strip(),))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            return UserAccount(
+                id=row["id"],
+                username=row["username"],
+                email=row["email"],
+                name=row["name"],
+                target_company=row["target_company"],
+                target_role=row["target_role"],
+                prep_days=row["prep_days"],
+                daily_hours=row["daily_hours"],
+                current_skills=row["current_skills"] or ""
+            )
+        return None
+
     @staticmethod
     def get_student_history(name: str) -> Dict[str, Any]:
         """
@@ -98,11 +191,13 @@ class MemoryManager:
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        resume_score_json = json.dumps(profile.resume_score_details.model_dump()) if profile.resume_score_details else "{}"
+
         cursor.execute("""
         INSERT INTO student_profiles (
             name, target_company, target_role, prep_days, daily_hours,
-            user_skills, strong_areas, weak_areas, resume_gaps, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            user_skills, strong_areas, weak_areas, resume_gaps, ats_score, resume_score_json, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(name) DO UPDATE SET
             target_company=excluded.target_company,
             target_role=excluded.target_role,
@@ -112,6 +207,8 @@ class MemoryManager:
             strong_areas=excluded.strong_areas,
             weak_areas=excluded.weak_areas,
             resume_gaps=excluded.resume_gaps,
+            ats_score=excluded.ats_score,
+            resume_score_json=excluded.resume_score_json,
             updated_at=CURRENT_TIMESTAMP;
         """, (
             profile.name.strip(),
@@ -122,8 +219,11 @@ class MemoryManager:
             json.dumps(profile.user_skills),
             json.dumps(profile.strong_areas),
             json.dumps(profile.weak_areas),
-            json.dumps(profile.resume_gaps)
+            json.dumps(profile.resume_gaps),
+            profile.ats_resume_score,
+            resume_score_json
         ))
+
 
         conn.commit()
         conn.close()

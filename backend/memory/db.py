@@ -18,6 +18,23 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # 0. User Accounts Table for Authentication
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        target_company TEXT,
+        target_role TEXT,
+        prep_days INTEGER DEFAULT 14,
+        daily_hours REAL DEFAULT 4.0,
+        current_skills TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
     # 1. Student Profiles Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS student_profiles (
@@ -31,10 +48,24 @@ def init_db():
         strong_areas TEXT,
         weak_areas TEXT,
         resume_gaps TEXT,
+        ats_score REAL DEFAULT 75.0,
+        resume_score_json TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
+
+    # Ensure migration for existing databases
+    try:
+        cursor.execute("ALTER TABLE student_profiles ADD COLUMN ats_score REAL DEFAULT 75.0;")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
+    try:
+        cursor.execute("ALTER TABLE student_profiles ADD COLUMN resume_score_json TEXT;")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
 
     # 2. Resume Analyses Table
     cursor.execute("""

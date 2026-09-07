@@ -88,7 +88,60 @@ class CompanyResearchTool:
                     ))
                     snippets.append(clean_snippet)
 
-        # 3. Handle research unavailability without fabricating data
+        # 4. Generate Curated Real Technical Study Links & Official Careers URLs
+        study_links: List[CompanyResearchSource] = [
+            CompanyResearchSource(
+                title="LeetCode Top Interview Questions & Patterns",
+                source_type="Coding Practice & DSA",
+                url="https://leetcode.com/problemset/all/",
+                category="study"
+            ),
+            CompanyResearchSource(
+                title="GeeksforGeeks CS Core Fundamentals & Quiz",
+                source_type="CS Domain Knowledge",
+                url="https://www.geeksforgeeks.org/computer-science-projects/",
+                category="study"
+            ),
+            CompanyResearchSource(
+                title="System Design Primer (GitHub Reference)",
+                source_type="Architecture & System Design",
+                url="https://github.com/donnemartin/system-design-primer",
+                category="study"
+            ),
+            CompanyResearchSource(
+                title="Developer Roadmaps & Skill Guides",
+                source_type="Role Preparation Roadmap",
+                url="https://roadmap.sh",
+                category="study"
+            )
+        ]
+
+        # Official company careers map
+        comp_lower = company_name.lower().strip()
+        official_careers = f"https://www.google.com/search?q={urllib.parse.quote(company_name + ' official careers job portal')}"
+        
+        if "google" in comp_lower:
+            official_careers = "https://careers.google.com"
+        elif "microsoft" in comp_lower:
+            official_careers = "https://careers.microsoft.com"
+        elif "amazon" in comp_lower:
+            official_careers = "https://www.amazon.jobs"
+        elif "meta" in comp_lower or "facebook" in comp_lower:
+            official_careers = "https://www.metacareers.com"
+        elif "apple" in comp_lower:
+            official_careers = "https://www.apple.com/careers"
+        elif "netflix" in comp_lower:
+            official_careers = "https://jobs.netflix.com"
+        elif "tcs" in comp_lower or "tata" in comp_lower:
+            official_careers = "https://www.tcs.com/careers"
+        elif "infosys" in comp_lower:
+            official_careers = "https://www.infosys.com/careers/"
+        elif "wipro" in comp_lower:
+            official_careers = "https://careers.wipro.com"
+        elif "accenture" in comp_lower:
+            official_careers = "https://www.accenture.com/in-en/careers"
+
+        # Handle research unavailability without fabricating data
         if not snippets or len(sources) == 0:
             result_summary = f"Live research unavailable for '{company_name}'. Falling back to role-based prep for '{role_name}'."
             log_tool_result("Company Research Tool", result_summary, start_time, state=state)
@@ -97,10 +150,12 @@ class CompanyResearchTool:
                 role_name=role_name,
                 official_info=f"Live external company data for '{company_name}' is currently unavailable.",
                 role_description=f"Standard target role requirements for {role_name}.",
-                key_skills=[],
-                hiring_process=[],
+                key_skills=["DSA", "System Design", "DBMS", "Problem Solving"],
+                hiring_process=["Online Technical Screening", "Technical Coding Rounds", "System Design Round", "HR Round"],
                 research_available=False,
                 sources=[],
+                study_links=study_links,
+                official_careers_url=official_careers,
                 notes="Company-specific research could not be retrieved from external sources. System will fall back to general role-based preparation."
             )
 
@@ -119,9 +174,12 @@ class CompanyResearchTool:
             role_name=role_name,
             official_info=f"Real web research compiled for {company_name} targeting {role_name}.",
             role_description=combined_info[:1500],
-            key_skills=list(set(extracted_skills)),
+            key_skills=list(set(extracted_skills)) if extracted_skills else ["DSA", "System Design", "DBMS"],
             hiring_process=["Online Assessment / Aptitude + Technical", "Technical Coding Interview", "System Architecture / Live Problem Solving", "HR & Culture Fit"],
             research_available=True,
             sources=sources,
-            notes="Sources retrieved from live public search results."
+            study_links=study_links,
+            official_careers_url=official_careers,
+            notes="Sources retrieved from live public search results and curated learning indexes."
         )
+

@@ -9,6 +9,45 @@ class StudentInput(BaseModel):
     daily_hours: float = Field(..., ge=1.0, le=16.0, description="Daily available study hours")
     current_skills: str = Field("", description="Comma-separated or free-text current skills")
 
+class ResumeValidationResult(BaseModel):
+    is_valid: bool
+    name_matched: bool
+    character_count: int = 0
+    error_message: str = ""
+
+class ResumeScoreData(BaseModel):
+    resume_score: float = 0.0 # 0.0 to 100.0
+    matched_skills: List[str] = Field(default_factory=list)
+    missing_skills: List[str] = Field(default_factory=list)
+    formatting_feedback: List[str] = Field(default_factory=list)
+    actionable_improvements: List[str] = Field(default_factory=list)
+
+class UserRegisterInput(BaseModel):
+    username: str = Field(..., min_length=3, description="Unique username")
+    email: str = Field(..., description="User email address")
+    password: str = Field(..., min_length=4, description="User password")
+    name: str = Field(..., description="Student full name")
+    target_company: str = Field(..., description="Target company")
+    target_role: str = Field(..., description="Target job role")
+    prep_days: int = Field(14, ge=1, le=90)
+    daily_hours: float = Field(4.0, ge=1.0, le=16.0)
+    current_skills: str = Field("")
+
+class UserLoginInput(BaseModel):
+    username: str = Field(..., description="Registered username")
+    password: str = Field(..., description="User password")
+
+class UserAccount(BaseModel):
+    id: int
+    username: str
+    email: str
+    name: str
+    target_company: str
+    target_role: str
+    prep_days: int
+    daily_hours: float
+    current_skills: str
+
 class ResumeData(BaseModel):
     education: List[str] = Field(default_factory=list)
     technical_skills: List[str] = Field(default_factory=list)
@@ -34,11 +73,14 @@ class StudentProfile(BaseModel):
     relevant_tech_for_role: List[str] = Field(default_factory=list)
     resume_gaps: List[str] = Field(default_factory=list)
     recommendations: List[str] = Field(default_factory=list)
+    ats_resume_score: float = 75.0
+    resume_score_details: Optional[ResumeScoreData] = None
 
 class CompanyResearchSource(BaseModel):
     title: str
     source_type: str
     url: str
+    category: str = "general" # study, careers, general
 
 class CompanyResearch(BaseModel):
     company_name: str
@@ -49,7 +91,10 @@ class CompanyResearch(BaseModel):
     hiring_process: List[str] = Field(default_factory=list)
     research_available: bool = True
     sources: List[CompanyResearchSource] = Field(default_factory=list)
+    study_links: List[CompanyResearchSource] = Field(default_factory=list)
+    official_careers_url: str = ""
     notes: str = ""
+
 
 class RoadmapTask(BaseModel):
     topic: str

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, User, Activity, Calendar, FileText, CheckSquare, Award, Globe, AlertCircle } from 'lucide-react';
+import { Bot, User, Activity, Calendar, FileText, CheckSquare, Award, Globe, AlertCircle, LogIn, UserCheck } from 'lucide-react';
 
 import StudentForm from './components/StudentForm';
 import AgentActivity from './components/AgentActivity';
@@ -8,6 +8,7 @@ import ResumeGap from './components/ResumeGap';
 import MockTest from './components/MockTest';
 import Results from './components/Results';
 import Sources from './components/Sources';
+import AuthModal from './components/AuthModal';
 
 import { preparePlacement, fetchSessionStatus, fetchMockTest, submitTestAnswers } from './api';
 
@@ -16,6 +17,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [sessionId, setSessionId] = useState('');
   const [profile, setProfile] = useState(null);
@@ -63,6 +66,15 @@ export default function App() {
     return () => clearInterval(interval);
   }, [sessionId, roadmap]);
 
+  const handleAuthSuccess = (user, history, newSessionId) => {
+    setCurrentUser(user);
+    if (newSessionId) {
+      setSessionId(newSessionId);
+      setIsLoading(true);
+      setActiveTab('activity');
+    }
+  };
+
   const handleFormSubmit = async (formData) => {
     setIsLoading(true);
     setErrorMessage('');
@@ -82,7 +94,8 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
-      setErrorMessage(err.response?.data?.detail || 'Error communicating with multi-agent backend server.');
+      const detailMsg = err.response?.data?.detail || 'Error communicating with multi-agent backend server.';
+      setErrorMessage(detailMsg);
       setIsLoading(false);
     }
   };
@@ -126,56 +139,81 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="nav-tabs">
-          <button
-            className={`tab-btn ${activeTab === 'setup' ? 'active' : ''}`}
-            onClick={() => setActiveTab('setup')}
-          >
-            <User size={15} /> Setup
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'activity' ? 'active' : ''}`}
-            onClick={() => setActiveTab('activity')}
-          >
-            <Activity size={15} /> Agent Execution {isLoading && '⚡'}
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'roadmap' ? 'active' : ''}`}
-            onClick={() => setActiveTab('roadmap')}
-            disabled={!roadmap}
-          >
-            <Calendar size={15} /> Roadmap
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'gaps' ? 'active' : ''}`}
-            onClick={() => setActiveTab('gaps')}
-            disabled={!profile}
-          >
-            <FileText size={15} /> Skill Gaps
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'test' ? 'active' : ''}`}
-            onClick={() => setActiveTab('test')}
-            disabled={!mockTest}
-          >
-            <CheckSquare size={15} /> Mock Test
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'results' ? 'active' : ''}`}
-            onClick={() => setActiveTab('results')}
-            disabled={!performance}
-          >
-            <Award size={15} /> Performance
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'sources' ? 'active' : ''}`}
-            onClick={() => setActiveTab('sources')}
-            disabled={!companyResearch}
-          >
-            <Globe size={15} /> Sources
-          </button>
-        </nav>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <nav className="nav-tabs">
+            <button
+              className={`tab-btn ${activeTab === 'setup' ? 'active' : ''}`}
+              onClick={() => setActiveTab('setup')}
+            >
+              <User size={15} /> Setup
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'activity' ? 'active' : ''}`}
+              onClick={() => setActiveTab('activity')}
+            >
+              <Activity size={15} /> Agent Execution {isLoading && '⚡'}
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'roadmap' ? 'active' : ''}`}
+              onClick={() => setActiveTab('roadmap')}
+              disabled={!roadmap}
+            >
+              <Calendar size={15} /> Roadmap
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'gaps' ? 'active' : ''}`}
+              onClick={() => setActiveTab('gaps')}
+              disabled={!profile}
+            >
+              <FileText size={15} /> Skill Gaps & ATS
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'test' ? 'active' : ''}`}
+              onClick={() => setActiveTab('test')}
+              disabled={!mockTest}
+            >
+              <CheckSquare size={15} /> Mock Test
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'results' ? 'active' : ''}`}
+              onClick={() => setActiveTab('results')}
+              disabled={!performance}
+            >
+              <Award size={15} /> Performance
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'sources' ? 'active' : ''}`}
+              onClick={() => setActiveTab('sources')}
+              disabled={!companyResearch}
+            >
+              <Globe size={15} /> Sources & Apply
+            </button>
+          </nav>
+
+          {/* User Auth Controls */}
+          {currentUser ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,242,254,0.1)', padding: '0.4rem 0.85rem', borderRadius: '8px', border: '1px solid var(--accent-cyan)', fontSize: '0.85rem' }}>
+              <UserCheck size={16} color="var(--accent-cyan)" />
+              <span style={{ fontWeight: 600 }}>{currentUser.name}</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="btn btn-secondary"
+              style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <LogIn size={15} /> Login / Register
+            </button>
+          )}
+        </div>
       </header>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+      />
 
       {/* Main App Workspace */}
       <main className="main-content">
@@ -207,7 +245,7 @@ export default function App() {
         )}
 
         {activeTab === 'roadmap' && (
-          <Roadmap roadmap={roadmap} profile={profile} />
+          <Roadmap roadmap={roadmap} profile={profile} sessionId={sessionId} />
         )}
 
         {activeTab === 'gaps' && (
@@ -233,3 +271,4 @@ export default function App() {
     </div>
   );
 }
+
