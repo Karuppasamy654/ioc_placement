@@ -85,10 +85,12 @@ def log_gemini_request(model_name: str, purpose: str, state=None):
 
 def log_gemini_response(status: str, output_size: int, duration: float, state=None):
     now_str = datetime.datetime.now().strftime("%H:%M:%S")
-    msg = f"[GEMINI RESPONSE]\nStatus: {status}\nOutput Size: {output_size} characters\nDuration: {round(duration, 2)}s"
+    est_tokens = max(1, output_size // 4)
+    msg = f"[GEMINI RESPONSE]\nStatus: {status}\nOutput Size: {output_size} characters (~{est_tokens} tokens)\nLatency: {round(duration, 2)}s"
     print(f"[{now_str}] {msg}\n", flush=True)
     if state is not None:
-        state.add_event(agent_name="Gemini Service", message=f"Response {status} ({output_size} chars in {round(duration, 2)}s)", status="INFO")
+        state.add_event(agent_name="Gemini Service", message=f"Response {status} ({output_size} chars / ~{est_tokens} tokens in {round(duration, 2)}s)", status="INFO")
+
 
 def log_gemini_error(error_msg: str, state=None):
     now_str = datetime.datetime.now().strftime("%H:%M:%S")

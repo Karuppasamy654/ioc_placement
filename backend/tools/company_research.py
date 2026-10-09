@@ -19,14 +19,23 @@ except ImportError:
     except ImportError:
         DDGS = None
 
+_RESEARCH_CACHE: Dict[str, CompanyResearch] = {}
+
 class CompanyResearchTool:
     @staticmethod
     def research_company_and_role(company_name: str, role_name: str, state=None) -> CompanyResearch:
         start_time = log_tool_start("Company Research Tool", f"company='{company_name}', role='{role_name}'", state=state)
         
+        cache_key = f"{company_name.lower().strip()}::{role_name.lower().strip()}"
+        if cache_key in _RESEARCH_CACHE:
+            log_tool_process("Company Research Tool", f"Cache Hit! Returning cached research for '{company_name}' ({role_name})", state=state)
+            log_tool_result("Company Research Tool", f"Retrieved cached research for '{company_name}' ({role_name})", start_time, state=state)
+            return _RESEARCH_CACHE[cache_key]
+
         query = f"{company_name} {role_name} interview process placement technical skills requirements"
         sources: List[CompanyResearchSource] = []
         snippets: List[str] = []
+
 
         log_tool_process("Company Research Tool", f"Executing web search query: '{query}'", state=state)
 
@@ -145,7 +154,7 @@ class CompanyResearchTool:
         if not snippets or len(sources) == 0:
             result_summary = f"Live research unavailable for '{company_name}'. Falling back to role-based prep for '{role_name}'."
             log_tool_result("Company Research Tool", result_summary, start_time, state=state)
-            return CompanyResearch(
+            fallback_res = CompanyResearch(
                 company_name=company_name,
                 role_name=role_name,
                 official_info=f"Live external company data for '{company_name}' is currently unavailable.",
@@ -158,6 +167,8 @@ class CompanyResearchTool:
                 official_careers_url=official_careers,
                 notes="Company-specific research could not be retrieved from external sources. System will fall back to general role-based preparation."
             )
+            _RESEARCH_CACHE[cache_key] = fallback_res
+            return fallback_res
 
         combined_info = "\n\n".join(snippets)
         extracted_skills = []
@@ -169,7 +180,7 @@ class CompanyResearchTool:
         result_summary = f"{len(sources)} real research sources retrieved | {len(extracted_skills)} role skills identified"
         log_tool_result("Company Research Tool", result_summary, start_time, state=state)
 
-        return CompanyResearch(
+        res = CompanyResearch(
             company_name=company_name,
             role_name=role_name,
             official_info=f"Real web research compiled for {company_name} targeting {role_name}.",
@@ -182,4 +193,7 @@ class CompanyResearchTool:
             official_careers_url=official_careers,
             notes="Sources retrieved from live public search results and curated learning indexes."
         )
+        _RESEARCH_CACHE[cache_key] = res
+        return res
+
 
