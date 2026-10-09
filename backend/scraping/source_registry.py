@@ -7,11 +7,22 @@ from backend.scraping.robots_policy import SSRFProtection
 DEFAULT_SEED_SOURCES = [
     # JOBS / INTERNSHIPS SOURCES
     {
+        "name": "Python Software Foundation Official Feed",
+        "base_url": "https://www.python.org/blogs/feed/",
+        "category": "jobs",
+        "source_type": "rss",
+        "enabled": True,
+        "permitted_paths_json": '["/blogs/feed/"]',
+        "crawl_interval_minutes": 60,
+        "rate_limit_rps": 1.0,
+        "extraction_config_json": '{"format": "rss"}'
+    },
+    {
         "name": "RemoteOK Tech Jobs Feed",
         "base_url": "https://remoteok.com/api",
         "category": "jobs",
         "source_type": "api",
-        "enabled": True,
+        "enabled": False, # Requires API token or custom user-agent
         "permitted_paths_json": '["/api"]',
         "crawl_interval_minutes": 60,
         "rate_limit_rps": 1.0,
@@ -22,7 +33,7 @@ DEFAULT_SEED_SOURCES = [
         "base_url": "https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss",
         "category": "jobs",
         "source_type": "rss",
-        "enabled": True,
+        "enabled": False, # Disallowed by robots.txt
         "permitted_paths_json": '["/categories"]',
         "crawl_interval_minutes": 60,
         "rate_limit_rps": 1.0,
@@ -86,11 +97,22 @@ DEFAULT_SEED_SOURCES = [
         "extraction_config_json": '{"topic": "react"}'
     },
     {
+        "name": "scikit-learn Documentation",
+        "base_url": "https://scikit-learn.org/stable/",
+        "category": "learning",
+        "source_type": "html",
+        "enabled": True,
+        "permitted_paths_json": '["/stable/"]',
+        "crawl_interval_minutes": 120,
+        "rate_limit_rps": 1.0,
+        "extraction_config_json": '{"topic": "scikit-learn"}'
+    },
+    {
         "name": "FastAPI Documentation",
         "base_url": "https://fastapi.tiangolo.com/",
         "category": "learning",
         "source_type": "html",
-        "enabled": True,
+        "enabled": False, # Robots policy restricts automated root crawl
         "permitted_paths_json": '["/"]',
         "crawl_interval_minutes": 120,
         "rate_limit_rps": 1.0,
@@ -101,22 +123,11 @@ DEFAULT_SEED_SOURCES = [
         "base_url": "https://git-scm.com/doc",
         "category": "learning",
         "source_type": "html",
-        "enabled": True,
+        "enabled": False, # Robots policy restricts /doc crawl
         "permitted_paths_json": '["/doc"]',
         "crawl_interval_minutes": 120,
         "rate_limit_rps": 1.0,
         "extraction_config_json": '{"topic": "git"}'
-    },
-    {
-        "name": "scikit-learn Documentation",
-        "base_url": "https://scikit-learn.org/stable/",
-        "category": "learning",
-        "source_type": "html",
-        "enabled": True,
-        "permitted_paths_json": '["/stable/"]',
-        "crawl_interval_minutes": 120,
-        "rate_limit_rps": 1.0,
-        "extraction_config_json": '{"topic": "scikit-learn"}'
     }
 ]
 
