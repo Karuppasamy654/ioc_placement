@@ -23,10 +23,11 @@ class GeminiService:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY", "")
         self.models = [
-            "gemini-3.6-flash",
-            "gemini-3.5-flash-lite"
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash"
         ]
         self.endpoint_base = "https://generativelanguage.googleapis.com/v1beta/models"
+
 
     def is_configured(self) -> bool:
         return bool(self.api_key and self.api_key != "your_gemini_api_key_here")

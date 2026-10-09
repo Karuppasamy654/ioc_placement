@@ -19,25 +19,26 @@ from backend.utils.logger import log_event
 
 from backend.scraping.routes import router as scraping_router
 from backend.scraping.scheduler import ScrapingScheduler
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler = ScrapingScheduler.get_instance()
+    scheduler.start()
+    yield
+    scheduler.stop()
+
 
 app = FastAPI(
     title="AI Placement Agent API",
     description="Adaptive placement preparation & dynamic mock test system powered by multi-agent AI.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Include Web Scraping & Ingestion Subsystem Routes
 app.include_router(scraping_router)
 
-@app.on_event("startup")
-def startup_event():
-    scheduler = ScrapingScheduler.get_instance()
-    scheduler.start()
-
-@app.on_event("shutdown")
-def shutdown_event():
-    scheduler = ScrapingScheduler.get_instance()
-    scheduler.stop()
 
 # Enable CORS for React Vite frontend
 app.add_middleware(
