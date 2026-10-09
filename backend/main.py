@@ -17,11 +17,27 @@ from backend.tools.resume_parser import ResumeParserTool
 from backend.utils.ics_exporter import ICSExporter
 from backend.utils.logger import log_event
 
+from backend.scraping.routes import router as scraping_router
+from backend.scraping.scheduler import ScrapingScheduler
+
 app = FastAPI(
     title="AI Placement Agent API",
     description="Adaptive placement preparation & dynamic mock test system powered by multi-agent AI.",
     version="1.0.0"
 )
+
+# Include Web Scraping & Ingestion Subsystem Routes
+app.include_router(scraping_router)
+
+@app.on_event("startup")
+def startup_event():
+    scheduler = ScrapingScheduler.get_instance()
+    scheduler.start()
+
+@app.on_event("shutdown")
+def shutdown_event():
+    scheduler = ScrapingScheduler.get_instance()
+    scheduler.stop()
 
 # Enable CORS for React Vite frontend
 app.add_middleware(
@@ -139,7 +155,8 @@ async def register_user(
             "user": user_acc,
             "session_id": session_id
         }
-    except HTTPException:
+    except HTTPException as he:
+        print(f"[API 400 BAD REQUEST] /api/register detail: {he.detail}")
         raise
     except Exception as e:
         print(f"[API ERROR] /api/register error: {e}")

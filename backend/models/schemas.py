@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 class StudentInput(BaseModel):
     name: str = Field(..., description="Student name")
@@ -173,3 +173,137 @@ class AgentEvent(BaseModel):
     event_type: str
     message: str
     status: str = "INFO"  # STARTED, COMPLETED, FAILED, INFO
+
+
+# =====================================================================
+# WEB SCRAPING & INGESTION SYSTEM SCHEMAS
+# =====================================================================
+
+class ScrapingSourceCreate(BaseModel):
+    name: str = Field(..., min_length=2, description="Source display name")
+    base_url: str = Field(..., description="Base URL of source")
+    category: str = Field("jobs", description="Data category: 'jobs' or 'learning'")
+    source_type: str = Field("html", description="Source type: 'api', 'rss', 'sitemap', or 'html'")
+    enabled: bool = Field(True, description="Enable or disable source crawl")
+    permitted_paths: List[str] = Field(default_factory=lambda: ["/"], description="Permitted URL paths for crawling")
+    crawl_interval_minutes: int = Field(60, ge=5, le=10080, description="Crawl interval in minutes")
+    rate_limit_rps: float = Field(1.0, ge=0.1, le=10.0, description="Rate limit requests per second")
+    extraction_config: Dict[str, Any] = Field(default_factory=dict, description="Custom extraction parameters")
+
+
+class ScrapingSourceUpdate(BaseModel):
+    name: Optional[str] = None
+    base_url: Optional[str] = None
+    category: Optional[str] = None
+    source_type: Optional[str] = None
+    enabled: Optional[bool] = None
+    permitted_paths: Optional[List[str]] = None
+    crawl_interval_minutes: Optional[int] = None
+    rate_limit_rps: Optional[float] = None
+    extraction_config: Optional[Dict[str, Any]] = None
+
+
+class ScrapingSourceOut(BaseModel):
+    id: int
+    name: str
+    base_url: str
+    category: str
+    source_type: str
+    enabled: bool
+    permitted_paths: List[str] = Field(default_factory=list)
+    crawl_interval_minutes: int
+    rate_limit_rps: float
+    extraction_config: Dict[str, Any] = Field(default_factory=dict)
+    last_successful_run: Optional[str] = None
+    last_error: Optional[str] = None
+    robots_verified: bool = True
+    created_at: str
+    updated_at: str
+
+
+class ScrapeRunOut(BaseModel):
+    id: int
+    source_id: int
+    source_name: str
+    start_time: str
+    finish_time: Optional[str] = None
+    status: str
+    records_discovered: int = 0
+    records_inserted: int = 0
+    records_updated: int = 0
+    duplicates_count: int = 0
+    failures_count: int = 0
+    error_log: str = ""
+    metrics: Dict[str, Any] = Field(default_factory=dict)
+
+
+class JobPostingOut(BaseModel):
+    id: int
+    source_id: int
+    source_name: str
+    canonical_url: str
+    external_id: str = ""
+    title: str
+    company: str
+    role_type: str
+    description: str
+    required_skills: List[str] = Field(default_factory=list)
+    qualifications: str = ""
+    location: str = ""
+    work_arrangement: str = ""
+    salary_or_stipend: str = ""
+    application_deadline: str = ""
+    original_url: str
+    publication_date: Optional[str] = None
+    first_seen_at: str
+    last_seen_at: str
+    last_verified_at: str
+    content_hash: str
+    status: str
+    validation_status: str
+
+
+class LearningResourceOut(BaseModel):
+    id: int
+    source_id: int
+    source_name: str
+    canonical_url: str
+    external_id: str = ""
+    title: str
+    category: str
+    description: str
+    topics: List[str] = Field(default_factory=list)
+    difficulty_level: str = "intermediate"
+    original_url: str
+    publication_date: Optional[str] = None
+    first_seen_at: str
+    last_seen_at: str
+    last_verified_at: str
+    content_hash: str
+    status: str
+    validation_status: str
+
+
+class ScrapingHealthMetrics(BaseModel):
+    status: str = "healthy"
+    active_sources_count: int
+    disabled_sources_count: int
+    total_scrape_runs: int
+    successful_runs_count: int
+    failed_runs_count: int
+    total_jobs_ingested: int
+    active_jobs_count: int
+    total_learning_resources: int
+    last_run_timestamp: Optional[str] = None
+    system_uptime_status: str = "operational"
+
+
+# Rebuild Pydantic models for v2 validation compatibility
+ScrapingSourceCreate.model_rebuild()
+ScrapingSourceUpdate.model_rebuild()
+ScrapingSourceOut.model_rebuild()
+ScrapeRunOut.model_rebuild()
+JobPostingOut.model_rebuild()
+LearningResourceOut.model_rebuild()
+ScrapingHealthMetrics.model_rebuild()
+

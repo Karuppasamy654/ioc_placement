@@ -11,6 +11,11 @@ except ImportError:
     fitz = None
 
 try:
+    import pypdf  # type: ignore # pypdf (pure Python PDF reader)
+except ImportError:
+    pypdf = None
+
+try:
     import docx  # type: ignore # python-docx
 except ImportError:
     docx = None
@@ -49,10 +54,30 @@ class ResumeParserTool:
                     error_message="Uploaded resume file is unreadable or empty (less than 100 characters extracted). Please upload a text-based PDF/DOCX resume."
                 )
 
+            # Strict Resume Content Validation: Document MUST contain typical resume section keywords
+            resume_keywords = [
+                "education", "experience", "skill", "skills", "project", "projects",
+                "work history", "employment", "certification", "certifications",
+                "qualification", "qualifications", "curriculum vitae", "resume", "summary",
+                "achievement", "achievements", "b.tech", "b.e", "bachelor", "master", "gpa", "cgpa", "degree"
+            ]
+            text_lower = extracted_text.lower()
+            matched_keywords = set()
+            for kw in resume_keywords:
+                if re.search(r"\b" + re.escape(kw) + r"\b", text_lower):
+                    matched_keywords.add(kw)
+
+            if len(matched_keywords) < 2:
+                return ResumeValidationResult(
+                    is_valid=False,
+                    name_matched=False,
+                    character_count=char_count,
+                    error_message="Uploaded document does not appear to be a valid Resume / CV. A valid resume must contain standard section headings (such as Education, Work Experience, Technical Skills, or Projects)."
+                )
+
             # Candidate name matching safely
             cand_name_str = candidate_name or ""
             name_tokens = [t.strip().lower() for t in cand_name_str.split() if len(t.strip()) >= 3]
-            text_lower = extracted_text.lower()
             
             name_matched = False
             if not name_tokens:
@@ -62,7 +87,7 @@ class ResumeParserTool:
 
             if not name_matched:
                 return ResumeValidationResult(
-                    is_valid=True,
+                    is_valid=False,
                     name_matched=False,
                     character_count=char_count,
                     error_message=f"Candidate name '{candidate_name}' was not found anywhere in the uploaded resume. Please upload your own resume matching your registered name."
@@ -104,9 +129,29 @@ class ResumeParserTool:
                     for page in doc:
                         extracted_text += page.get_text() + "\n"
                 except Exception as e:
-                    print(f"[RESUME PARSER TOOL ERROR] PDF extraction error: {e}")
-            else:
-                log_tool_process("Resume Parser Tool", "PyMuPDF not installed, skipping PDF text extraction", state=state)
+                    print(f"[RESUME PARSER TOOL ERROR] PyMuPDF PDF extraction error: {e}")
+
+            if len(extracted_text.strip()) < 50 and pypdf is not None:
+                log_tool_process("Resume Parser Tool", "Extracting PDF text using pypdf reader", state=state)
+                try:
+                    reader = pypdf.PdfReader(file_path)
+                    for page in reader.pages:
+                        t = page.extract_text()
+                        if t:
+                            extracted_text += t + "\n"
+                except Exception as e:
+                    print(f"[RESUME PARSER TOOL ERROR] pypdf extraction error: {e}")
+
+            if len(extracted_text.strip()) < 50:
+                log_tool_process("Resume Parser Tool", "Extracting PDF text using raw stream decoder fallback", state=state)
+                try:
+                    with open(file_path, "rb") as f:
+                        content = f.read()
+                        strings = re.findall(rb"\(([^()]{3,})\)\s*T[jJ]", content)
+                        if strings:
+                            extracted_text += " ".join(s.decode("latin1", errors="ignore") for s in strings)
+                except Exception as e:
+                    print(f"[RESUME PARSER TOOL ERROR] Raw PDF stream fallback error: {e}")
 
         elif ext in [".docx", ".doc"]:
             if docx is not None:
@@ -118,7 +163,16 @@ class ResumeParserTool:
                 except Exception as e:
                     print(f"[RESUME PARSER TOOL ERROR] DOCX extraction error: {e}")
             else:
-                log_tool_process("Resume Parser Tool", "python-docx not installed, skipping DOCX text extraction", state=state)
+                log_tool_process("Resume Parser Tool", "Extracting DOCX text using standard zipfile/xml parser", state=state)
+                try:
+                    import zipfile
+                    import xml.etree.ElementTree as ET
+                    with zipfile.ZipFile(file_path) as z:
+                        xml_bytes = z.read('word/document.xml')
+                        root = ET.fromstring(xml_bytes)
+                        extracted_text = " ".join(root.itertext())
+                except Exception as e:
+                    print(f"[RESUME PARSER TOOL ERROR] Zip/XML DOCX fallback error: {e}")
 
         char_count = len(extracted_text.strip())
         if char_count == 0:

@@ -137,9 +137,24 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem',
             color: '#f87171', fontSize: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: '8px'
           }}>
-            <AlertCircle size={18} style={{ shrink: 0, marginTop: '2px' }} />
-            <div>
+            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ flex: 1 }}>
               <strong>Validation Alert:</strong> {errorMsg}
+              {errorMsg.toLowerCase().includes('already registered') && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setErrorMsg(''); }}
+                    style={{
+                      background: '#00f2fe', color: '#000', border: 'none',
+                      padding: '0.35rem 0.75rem', borderRadius: '6px', fontWeight: 'bold',
+                      fontSize: '0.78rem', cursor: 'pointer'
+                    }}
+                  >
+                    Click here to Login as '{username}'
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -3,7 +3,11 @@ import os
 import shutil
 import tempfile
 import uuid
-import fitz  # PyMuPDF
+import zipfile
+try:
+    import fitz  # type: ignore # PyMuPDF
+except ImportError:
+    fitz = None
 from fastapi.testclient import TestClient
 
 # Ensure backend modules can be imported relative to project root
@@ -19,10 +23,18 @@ from backend.models.schemas import UserRegisterInput, Roadmap, RoadmapDay, Roadm
 
 client = TestClient(app)
 
-def create_sample_pdf(file_path: str, candidate_name: str, content_text: str):
-    """Utility helper to dynamically create a valid PDF file with sample resume text."""
-    doc = fitz.open()
-    page = doc.new_page()
+def create_sample_docx(file_path: str, text_content: str):
+    """Creates a valid .docx file using standard library zipfile without external C dependencies."""
+    with zipfile.ZipFile(file_path, 'w') as z:
+        z.writestr('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
+        escaped = text_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        paras = "".join([f"<w:p><w:r><w:t>{line}</w:t></w:r></w:p>" for line in escaped.split("\n")])
+        xml = f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>{paras}</w:body></w:document>'
+        z.writestr('word/document.xml', xml)
+
+def create_sample_resume(file_path: str, candidate_name: str, content_text: str):
+    """Utility helper to dynamically create a valid PDF or DOCX file with sample resume text."""
+    ext = os.path.splitext(file_path)[1].lower()
     text = f"RESUME OF {candidate_name.upper()}\n\n"
     text += f"Email: {candidate_name.lower().replace(' ', '.')}@example.com | Phone: +1-555-0199\n\n"
     text += "SUMMARY:\n"
@@ -31,10 +43,15 @@ def create_sample_pdf(file_path: str, candidate_name: str, content_text: str):
     text += "EXPERIENCE:\nSoftware Engineer at TechCorp (2022 - Present)\n"
     text += "- Developed scalable microservices using Python and FastAPI.\n"
     text += "- Built real-time dashboard UI using React.js.\n"
-    
-    page.insert_text((50, 50), text, fontsize=11)
-    doc.save(file_path)
-    doc.close()
+
+    if ext == ".pdf" and fitz is not None:
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((50, 50), text, fontsize=11)
+        doc.save(file_path)
+        doc.close()
+    else:
+        create_sample_docx(file_path, text)
 
 def test_resume_validation_and_auth():
     print("====================================================")
@@ -56,33 +73,40 @@ def test_resume_validation_and_auth():
 
         # 2. Test Resume Validation - Short/Unreadable Text (<100 chars)
         print("\n--- 2. Testing Short/Unreadable Resume Text (<100 chars) ---")
-        short_pdf_path = os.path.join(temp_dir, "short_resume.pdf")
-        doc = fitz.open()
-        p = doc.new_page()
-        p.insert_text((50, 50), "John Doe Resume short", fontsize=11)
-        doc.save(short_pdf_path)
-        doc.close()
+        short_doc_path = os.path.join(temp_dir, "short_resume.docx")
+        create_sample_docx(short_doc_path, "John Doe Resume short")
 
-        val_res2 = ResumeParserTool.validate_resume(short_pdf_path, "John Doe")
+        val_res2 = ResumeParserTool.validate_resume(short_doc_path, "John Doe")
         assert not val_res2.is_valid
         assert "less than 100 characters" in val_res2.error_message
         print(f"[OK] Short resume caught correctly: {val_res2.error_message}")
 
+        # 2b. Test Resume Validation - Non-Resume Document (e.g. Essay/Report)
+        print("\n--- 2b. Testing Non-Resume Document Rejection ---")
+        essay_doc_path = os.path.join(temp_dir, "essay_document.docx")
+        essay_text = "Alice Smith wrote a long essay about climate change and renewable energy sources including solar, wind, and hydroelectric power systems across global regions over decades of environmental policy research."
+        create_sample_docx(essay_doc_path, essay_text)
+
+        val_res_essay = ResumeParserTool.validate_resume(essay_doc_path, "Alice Smith")
+        assert not val_res_essay.is_valid
+        assert "does not appear to be a valid Resume" in val_res_essay.error_message
+        print(f"[OK] Non-resume document rejected correctly: {val_res_essay.error_message}")
+
         # 3. Test Resume Validation - Candidate Name Mismatch
         print("\n--- 3. Testing Candidate Name Mismatch ---")
-        pdf_alice_path = os.path.join(temp_dir, "alice_resume.pdf")
+        resume_alice_path = os.path.join(temp_dir, "alice_resume.docx")
         long_body = "Professional Software Developer with extensive hands-on experience in backend architectures, cloud computing, continuous integration, and modern database management systems."
-        create_sample_pdf(pdf_alice_path, "Alice Smith", long_body)
+        create_sample_resume(resume_alice_path, "Alice Smith", long_body)
 
-        val_res3 = ResumeParserTool.validate_resume(pdf_alice_path, "Bob Williams")
-        assert val_res3.is_valid  # Format & length are valid
+        val_res3 = ResumeParserTool.validate_resume(resume_alice_path, "Bob Williams")
+        assert not val_res3.is_valid
         assert not val_res3.name_matched
         assert "was not found anywhere in the uploaded resume" in val_res3.error_message
         print(f"[OK] Name mismatch caught correctly: {val_res3.error_message}")
 
         # 4. Test Resume Validation - Successful Name Match
         print("\n--- 4. Testing Successful Resume Validation & Name Match ---")
-        val_res4 = ResumeParserTool.validate_resume(pdf_alice_path, "Alice Smith")
+        val_res4 = ResumeParserTool.validate_resume(resume_alice_path, "Alice Smith")
         assert val_res4.is_valid
         assert val_res4.name_matched
         assert not val_res4.error_message
@@ -92,7 +116,7 @@ def test_resume_validation_and_auth():
         print("\n--- 5. Testing API Registration Endpoint (/api/register) ---")
         reg_username = f"alice_user_{uuid.uuid4().hex[:6]}"
         
-        with open(pdf_alice_path, "rb") as f:
+        with open(resume_alice_path, "rb") as f:
             response = client.post(
                 "/api/register",
                 data={
@@ -106,7 +130,7 @@ def test_resume_validation_and_auth():
                     "daily_hours": 3.0,
                     "current_skills": "Python, SQL, Algorithms"
                 },
-                files={"resume": ("alice_resume.pdf", f, "application/pdf")}
+                files={"resume": ("alice_resume.docx", f, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
             )
 
         assert response.status_code == 200, f"Registration failed: {response.text}"

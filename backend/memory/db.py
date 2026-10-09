@@ -128,6 +128,107 @@ def init_db():
     );
     """)
 
+    # 6. Scraping Sources Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS scraping_sources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        base_url TEXT NOT NULL,
+        category TEXT DEFAULT 'jobs',
+        source_type TEXT DEFAULT 'html',
+        enabled INTEGER DEFAULT 1,
+        permitted_paths_json TEXT DEFAULT '["/"]',
+        crawl_interval_minutes INTEGER DEFAULT 60,
+        rate_limit_rps REAL DEFAULT 1.0,
+        extraction_config_json TEXT DEFAULT '{}',
+        last_successful_run TIMESTAMP,
+        last_error TEXT,
+        robots_verified INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
+    # 7. Scrape Runs Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS scrape_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id INTEGER NOT NULL,
+        source_name TEXT NOT NULL,
+        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        finish_time TIMESTAMP,
+        status TEXT DEFAULT 'running',
+        records_discovered INTEGER DEFAULT 0,
+        records_inserted INTEGER DEFAULT 0,
+        records_updated INTEGER DEFAULT 0,
+        duplicates_count INTEGER DEFAULT 0,
+        failures_count INTEGER DEFAULT 0,
+        error_log TEXT DEFAULT '',
+        metrics_json TEXT DEFAULT '{}',
+        FOREIGN KEY(source_id) REFERENCES scraping_sources(id)
+    );
+    """)
+
+    # 8. Job Postings Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS job_postings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id INTEGER NOT NULL,
+        source_name TEXT NOT NULL,
+        canonical_url TEXT UNIQUE NOT NULL,
+        external_id TEXT DEFAULT '',
+        title TEXT NOT NULL,
+        company TEXT NOT NULL,
+        role_type TEXT DEFAULT 'full_time',
+        description TEXT NOT NULL,
+        required_skills_json TEXT DEFAULT '[]',
+        qualifications TEXT DEFAULT '',
+        location TEXT DEFAULT '',
+        work_arrangement TEXT DEFAULT 'onsite',
+        salary_or_stipend TEXT DEFAULT '',
+        application_deadline TEXT DEFAULT '',
+        original_url TEXT NOT NULL,
+        publication_date TIMESTAMP,
+        first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        content_hash TEXT NOT NULL,
+        status TEXT DEFAULT 'active',
+        validation_status TEXT DEFAULT 'valid',
+        FOREIGN KEY(source_id) REFERENCES scraping_sources(id)
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_company ON job_postings(company);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_role_type ON job_postings(role_type);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_canonical ON job_postings(canonical_url);")
+
+    # 9. Learning Resources Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS learning_resources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id INTEGER NOT NULL,
+        source_name TEXT NOT NULL,
+        canonical_url TEXT UNIQUE NOT NULL,
+        external_id TEXT DEFAULT '',
+        title TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        description TEXT NOT NULL,
+        topics_json TEXT DEFAULT '[]',
+        difficulty_level TEXT DEFAULT 'intermediate',
+        original_url TEXT NOT NULL,
+        publication_date TIMESTAMP,
+        first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        content_hash TEXT NOT NULL,
+        status TEXT DEFAULT 'active',
+        validation_status TEXT DEFAULT 'valid',
+        FOREIGN KEY(source_id) REFERENCES scraping_sources(id)
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_resources_category ON learning_resources(category);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_resources_canonical ON learning_resources(canonical_url);")
+
     conn.commit()
     conn.close()
 

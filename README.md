@@ -793,16 +793,42 @@ IOC_PROJECT/
 
 ---
 
+## Web Scraping & Data Ingestion Subsystem
+
+The platform includes a production-grade automated web scraping and data ingestion engine for sourcing live hiring records and verified technical learning documentation.
+
+### Key Features & Safety Mechanisms
+1. **Approved Source Registry**: Pre-configured with permitted public sources (e.g., Python Docs, React Docs, FastAPI Docs, Git Docs, scikit-learn Docs, Microsoft Careers, Google Careers, Amazon Jobs).
+2. **Robots Policy Compliance**: Parses `robots.txt` per host and strictly respects `User-agent` directives, crawl delays, and disallowed paths.
+3. **SSRF & Network Defense**: Resolves IP addresses and blocks private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), loopbacks (`127.0.0.1`), and non-HTTP protocols.
+4. **Resilient HTTP Client**: Employs connection pooling, exponential backoff with jitter, explicit timeouts (15s), and 5 MB payload size limits.
+5. **Multi-Format Parsers**: RSS/Atom XML feed parsing, BeautifulSoup HTML extraction, and JSON API mapping with boilerplate removal.
+6. **Normalization & Deduplication**: Canonical URL normalization, clean HTML strip, date parsing, and SHA-256 content hashing to prevent duplicate record insertion.
+7. **Prompt Injection Defense**: Cleans scraped raw text before sending to LLM agents or embedding into prompt context.
+8. **Background Scheduler**: Async background manager running periodic source ingestion with per-source mutex locks.
+
+### Subsystem API Endpoints
+- `GET /api/scraping/sources`: List all active registered scraping sources.
+- `POST /api/scraping/sources`: Register a new permitted scraping source.
+- `POST /api/scraping/trigger`: Trigger manual ingestion run for a target source or all active sources.
+- `GET /api/scraping/runs`: Retrieve ingestion execution run history.
+- `GET /api/scraping/health`: Retrieve real-time subsystem operational metrics and stats.
+- `GET /api/jobs`: Query stored live job posting records.
+- `GET /api/resources`: Query stored technical learning resources.
+
+---
+
 ## Key Dependencies
 
 ### Backend Dependencies (`requirements.txt`)
 - `fastapi`: Async HTTP framework for API endpoints.
 - `uvicorn`: ASGI server for FastAPI application.
 - `pydantic`: Schema definition and data validation.
+- `beautifulsoup4` (`bs4`): HTML parsing and content extraction.
+- `httpx`: Async resilient HTTP client.
 - `pymupdf` (`fitz`): PDF resume text parsing.
 - `python-docx`: Microsoft Word `.docx` resume parsing.
 - `duckduckgo_search` / `ddgs`: Live web research for company hiring criteria.
-- `httpx` & `urllib3`: HTTP request clients for Gemini API calls.
 - `python-dotenv`: Environment variable management.
 
 ### Frontend Dependencies (`frontend/package.json`)
